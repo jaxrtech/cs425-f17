@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block styles %}
+    {{ super() }}
+    <style>
+        html, body {
+            background: url('/static/images/index_background.jpg');
+            background-size: cover;
+            background-position: center;
+            height: 100%;
+        }
+
+        .container {
+            margin: 0 auto;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="container">
+        <div class="jumbotron">
+            <h1>The world's favorite way to fly.</h1>
+            <p>What are you waiting for?</p>
+            <a href="/register?next={{ next }}" class="btn btn-primary btn-lg">Jump in now!</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

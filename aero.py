@@ -41,7 +41,7 @@ def load_user(user_id):
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('layout.html')
+    return render_template('index.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
