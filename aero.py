@@ -50,11 +50,10 @@ def login():
     email = request.form['email']
     password = request.form['password']
     with db.cursor() as cur:
-        cur.execute('CREATE EXTENSION pgcrypto;')
-        cur.execute("SELECT name, id FROM customer WHERE email=%s AND password=DIGEST(%s, 'sha256')", email.lower(), password)
+        cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s::TEXT AND password LIKE DIGEST(%s, 'sha256')::TEXT", (email.lower(), password))
         u = cur.fetchone()
         if u:
-            login_user(User(name=u[0], email=email.lower, id=u[1]))
+            login_user(User(name=u[0], email=email.lower, id=u[1]), remember=request.form['remember'])
             next = request.form['next']
             return redirect(next)
         else:
@@ -67,7 +66,36 @@ def register():
         return render_template('register.html', next=request.args.get('next'))
 
     with db.cursor() as cur:
-        pass
+        try:
+            cur.execute("SET CONSTRAINTS ALL DEFERRED;")
+            cur.execute("INSERT INTO customer VALUES (DEFAULT, %s, %s, DIGEST(%s, 'sha256')::TEXT, NULL, NULL, %s) RETURNING id;",
+                        (request.form['name'], request.form['email'], request.form['password'], request.form['home']))
+            customer_id = cur.fetchone()[0]
+
+            cur.execute("INSERT INTO address VALUES (DEFAULT, %s, NULL, %s, %s, %s, %s) RETURNING id;",
+                        (request.form['addr'], request.form['city'], request.form['province'],
+                        request.form['post'], request.form['country']))
+            address_id = cur.fetchone()[0]
+
+            cur.execute("INSERT INTO customer_address VALUES (%s, %s);",
+                        (customer_id, address_id))
+
+            cur.execute("UPDATE customer SET primary_address=%s WHERE id=%s;",
+                        (address_id, customer_id))
+
+            cur.commit()
+
+            login_user(User(name=request.form['name'], email=request.form['email'], id=customer_id))
+            next = request.form['next']
+            return redirect(next)
+        except Exception as e:
+            return render_template('register.html', next=request.args.get('next'),
+                                   error=e)
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return
 
 
 if __name__ == '__main__':

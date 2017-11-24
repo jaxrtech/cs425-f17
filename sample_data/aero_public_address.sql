@@ -1,0 +1,4 @@
+INSERT INTO public.address (id, line_1, line_2, city, province, postal_code, country) VALUES (4, '10000 W O''Hare Ave', '', 'Chicago', 'IL', '60666', 'United States');
+INSERT INTO public.address (id, line_1, line_2, city, province, postal_code, country) VALUES (5, '6000 N Terminal Pkwy', '', 'Atlanta', 'GA', '30320', 'United States');
+INSERT INTO public.address (id, line_1, line_2, city, province, postal_code, country) VALUES (6, 'Boite postale 20101', '', 'Roissy-en-France', '', '95700', 'France');
+INSERT INTO public.address (id, line_1, line_2, city, province, postal_code, country) VALUES (8, 'JFK Airport', '', 'Jamaica', 'NY', '11430', 'United States');
