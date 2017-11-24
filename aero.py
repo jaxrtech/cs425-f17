@@ -88,8 +88,7 @@ def register():
             db.commit()
 
             login_user(User(name=request.form['name'], email=request.form['email'], id=customer_id))
-            next = request.form['next']
-            return redirect(next)
+            return redirect('/')
         except Exception as e:
             return render_template('register.html', next=request.args.get('next'),
                                    error=e)
