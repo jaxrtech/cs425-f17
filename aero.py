@@ -31,7 +31,7 @@ class User:
 @login_manager.user_loader
 def load_user(user_id):
     with db.cursor() as cur:
-        cur.execute("SELECT name, id FROM customer WHERE email=%s", user_id)
+        cur.execute("SELECT name, id FROM customer WHERE email=%s", (user_id,))
 
         u = cur.fetchone()
         if u:
@@ -52,12 +52,13 @@ def login():
     email = request.form['email']
     password = request.form['password']
     with db.cursor() as cur:
-        cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s::TEXT AND password LIKE DIGEST(%s, 'sha256')::TEXT", (email.lower(), password))
+        cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s::TEXT AND password=DIGEST(%s, 'sha256')::TEXT",
+                    (email.lower(), password))
         u = cur.fetchone()
         if u:
-            login_user(User(name=u[0], email=email.lower, id=u[1]), remember=request.form['remember'])
-            next = request.form['next']
-            return redirect(next)
+            login_user(User(name=u[0], email=email.lower(), id=u[1]), remember=request.form.get('remember'))
+            # next = request.form.get('next')
+            return redirect('/')
         else:
             return render_template('login.html', next=request.form['next'], error='Incorrect login!')
 
@@ -96,7 +97,7 @@ def register():
 @app.route('/logout')
 def logout():
     logout_user()
-    return
+    return redirect('/')
 
 
 if __name__ == '__main__':
