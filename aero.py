@@ -10,6 +10,8 @@ Bootstrap(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+app.secret_key = 'ak;sljmdfvijkldsfvbnmiouaervmuiw4remivou'
+
 db = pg.connect(dbname='aero', user='aero', password='hunter2', host='127.0.0.1')
 
 class User:
@@ -68,22 +70,21 @@ def register():
     with db.cursor() as cur:
         try:
             cur.execute("SET CONSTRAINTS ALL DEFERRED;")
-            cur.execute("INSERT INTO customer VALUES (DEFAULT, %s, %s, DIGEST(%s, 'sha256')::TEXT, NULL, NULL, %s) RETURNING id;",
-                        (request.form['name'], request.form['email'], request.form['password'], request.form['home']))
-            customer_id = cur.fetchone()[0]
 
-            cur.execute("INSERT INTO address VALUES (DEFAULT, %s, NULL, %s, %s, %s, %s) RETURNING id;",
-                        (request.form['addr'], request.form['city'], request.form['province'],
+            cur.execute("INSERT INTO address VALUES (DEFAULT, %s, %s, %s, %s, %s, %s) RETURNING id;",
+                        (request.form['addr'], '', request.form['city'], request.form['province'],
                         request.form['post'], request.form['country']))
             address_id = cur.fetchone()[0]
+
+            cur.execute("INSERT INTO customer VALUES (DEFAULT, %s, %s, DIGEST(%s, 'sha256')::TEXT, NULL, %s, %s) RETURNING id;",
+                        (request.form['name'], request.form['email'], request.form['password'],
+                         address_id, request.form['home']))
+            customer_id = cur.fetchone()[0]
 
             cur.execute("INSERT INTO customer_address VALUES (%s, %s);",
                         (customer_id, address_id))
 
-            cur.execute("UPDATE customer SET primary_address=%s WHERE id=%s;",
-                        (address_id, customer_id))
-
-            cur.commit()
+            db.commit()
 
             login_user(User(name=request.form['name'], email=request.form['email'], id=customer_id))
             next = request.form['next']
