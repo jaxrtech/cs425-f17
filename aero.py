@@ -1,7 +1,7 @@
-from flask import Flask, request, session, g, redirect, render_template, send_from_directory, abort
-from flask_bootstrap import Bootstrap
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import psycopg2 as pg
+from flask import Flask, request, redirect, render_template
+from flask_bootstrap import Bootstrap
+from flask_login import LoginManager, login_user, logout_user
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 
@@ -13,6 +13,7 @@ login_manager.init_app(app)
 app.secret_key = 'ak;sljmdfvijkldsfvbnmiouaervmuiw4remivou'
 
 db = pg.connect(dbname='aero', user='aero', password='hunter2', host='127.0.0.1')
+
 
 class User:
     def __init__(self, id, name, email):
