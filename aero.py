@@ -2,6 +2,7 @@ import psycopg2 as pg
 from flask import Flask, request, redirect, render_template
 from flask_bootstrap import Bootstrap
 from flask_login import LoginManager, login_user, logout_user
+import datetime
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 
@@ -95,6 +96,38 @@ def register():
             except pg.Error as e:
                 db.rollback()
                 return render_template('register.html', next=request.args.get('next'), error=e)
+
+
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    with db.cursor() as cur:
+        if request.method == 'GET':
+            return render_template('search.html',
+                                   from_airport='ATL',
+                                   to_airport='CDG',
+                                   dep_date=datetime.date.today(),
+                                   airline='DL')
+        else:
+            dep_date = datetime.date(year=int(request.form['dep_date_year']),
+                                     month=int(request.form['dep_date_month']),
+                                     day=int(request.form['dep_date_day']))
+            dep_date_max = dep_date + datetime.timedelta(days=1)
+            #cur.execute('SELECT * FROM flight;')
+            cur.execute("SELECT * FROM flight WHERE departure_airport=%s AND arrival_airport=%s AND %s <= departure_time\
+                        AND %s >= departure_time AND airline=%s",
+                        (request.form['from_airport'],
+                        request.form['to_airport'],
+                        dep_date,
+                        dep_date_max,
+                        request.form['airline']))
+            results = cur.fetchall()
+            return render_template('search.html',
+                                   from_airport=request.form['from_airport'],
+                                   to_airport=request.form['to_airport'],
+                                   dep_date=dep_date,
+                                   airline=request.form['airline'],
+                                   flights=results)
+
 
 
 @app.route('/logout')
