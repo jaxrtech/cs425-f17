@@ -1,3 +1,42 @@
 {% extends "layout.html" %}
 {% block content %}
+{# itinerary indices reference
+0. flight_id
+1. flight_id
+2. class_id
+3. capacity
+4. price
+5. number
+6. departure_time
+7. arrival_time
+8. departure_airport
+9. arrival_airport
+10. airline
+11. display_name #}
+    <div class="container">
+        <h1>Your itinerary</h1>
+        <div class="list-group">
+            {% for flight in itinerary %}
+                <div class="list-group-item">
+                    <h1>
+                        {{ flight[10] }}{{ flight[5] }}
+                        <small>
+                            {{ flight[8] }}
+                            <i class="glyphicon glyphicon-arrow-right"></i>
+                            {{ flight[9] }}
+                        </small>
+                        <span class="pull-right">{{ flight[4] }}</span>
+                    </h1>
+                    Departing at {{ flight[6].strftime('%H:%m on %m-%d-%y') }} -- <b>Confirmation number: <span class="badge badge-primary">{{ flight[-1] }}</span></b>
+                </div>
+            {% endfor %}
+            <div class="list-group-item list-group-item-success">
+                <h2>Total: <span class="pull-right">{{ total }}</span></h2>
+            </div>
+        </div>
+        <div class="well">
+            <a class="btn btn-default" href="/search">Keep shopping</a>
+            <a class="btn btn-primary pull-right" href="/checkout/payment">Continue to payment</a>
+        </div>
+    </div>
 {% endblock %}

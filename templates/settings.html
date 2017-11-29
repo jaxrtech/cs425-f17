@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="container">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Payment methods
+            </div>
+            <div class="list-group">
+                {% for method in payment_methods %}
+                    <div class="list-group-item {{ "active" if method[0]==primaries[0] }}">
+                        <h1>{{ method[1] }}<a href="/settings/payment/remove/{{ method[0] }}"
+                                              class="btn btn-danger pull-right">Remove</a></h1>
+                    </div>
+                {% endfor %}
+                <div class="list-group-item">
+                    <form action="/settings/payment/add" method="post">
+                        <div class="form-group">
+                            <label for="card_number">Card number</label>
+                            <input type="tel" name="card_number" class="form-control"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="exp_month">Expiration date</label>
+                            <div class="input-group">
+                                <input type="tel" name="exp_month" class="form-control" placeholder="MM"/>
+                                <div class="input-group-addon">/</div>
+                                <input type="tel" name="exp_year" class="form-control" placeholder="YYYY"/>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="name">Name on card</label>
+                            <input type="text" name="name" class="form-control" placeholder="{{ current_user.name }}"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="address">Address</label>
+                            <select name="address" class="form-control">
+                                {% for address in addresses %}
+                                    <option value="{{ address[1] }}"
+                                            {% if address[1] == primary_address %} selected {% endif %}>
+                                        {{ address[3] }} {{ address[4] }}, {{ address[5] }}, {{ address[6] }} {{ address[7] }} {{ address[8] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <input type="submit" class="btn btn-primary btn-block" value="Add payment method"/>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Addresses
+            </div>
+            <div class="list-group">
+                {% for address in addresses %}
+                    <div class="list-group-item {{ "active" if address[0]==primaries[1] }}">
+                        <div class="pull-right">
+                            <a href="/settings/addresses/remove/{{ address[0] }}" class="btn btn-danger"><i
+                                    class="glyphicon glyphicon-remove"></i></a>
+                            <a href="/settings/addresses/setprimary/{{ address[0] }}" class="btn btn-primary"><i
+                                    class="glyphicon glyphicon-check"></i></a>
+                        </div>
+                        <address>
+                            <strong>{{ current_user.name }}</strong><br/>
+                            {{ address[3] }}<br/>
+                            {% if address[4] %}
+                                {{ address[4] }}<br/>
+                            {% endif %}
+                            {{ address[5] }}, {{ address[6] }} {{ address[7] }}<br/>
+                            {{ address[8] }}
+                        </address>
+                    </div>
+                {% endfor %}
+                <div class="list-group-item">
+                    <form action="/settings/addresses/add/" method="post">
+                        <div class="form-group">
+                            <label for="line1">Address</label>
+                            <input type="text" class="form-control" name="line1"/>
+                            <input type="text" class="form-control" name="line2"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="city">City, State/Province</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="city"/>
+                                <div class="input-group-addon">
+                                    ,
+                                </div>
+                                <input type="text" class="form-control" name="province"/>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="post">Postal Code</label>
+                            <input type="text" class="form-control" name="post"/>
+                        </div>
+                        <div class="form-group">
+                            <label for="country">Country</label>
+                            <input type="text" class="form-control" name="country"/>
+                        </div>
+                        <div class="form-group">
+                            <input type="submit" class="btn btn-primary btn-block" value="Add address" />
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

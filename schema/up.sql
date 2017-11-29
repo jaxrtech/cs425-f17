@@ -93,10 +93,11 @@ CREATE TABLE IF NOT EXISTS ticket (
 	leg INT NOT NULL,
 	flight SERIAL NOT NULL REFERENCES flight (id),
 	customer_id SERIAL NOT NULL REFERENCES customer (id),
+	paid_with SERIAL NOT NULL REFERENCES payment_method (id),
   class_id SERIAL NOT NULL REFERENCES class (id)
 );
 
-GRANT SELECT, REFERENCES ON TABLE ticket TO aero;
+GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLE ticket TO aero;
 
 
 -- payment_method

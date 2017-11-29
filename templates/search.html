@@ -45,6 +45,7 @@
                 <div class="list-group">
                     {% for flight in flights %}
                     <div class="list-group-item">
+                        <a class="btn btn-primary pull-right" href="/select/{{ flight[0] }}/1">Select this flight --></a>
                         <h2>{{ flight[6] }}{{ flight[1] }}</h2>
                     </div>
                     {% endfor %}
