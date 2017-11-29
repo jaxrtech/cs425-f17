@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="container">
+        <form action="/checkout/finish" method="post">
+            <div class="panel panel-default">
+
+                <div class="panel-heading">
+                    Payment
+                </div>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        Total: {{ total }}
+                    </div>
+                    <div class="list-group-item">
+                        Available payment methods (<a href="/settings">Add another?</a>):
+                        <select name="payment_method" class="form-control">
+                            {% for method in payment_methods %}
+                                <option value="{{ method[0] }}"
+                                        {% if method[0] == primary_payment %} selected {% endif %}>
+                                    {{ method[1] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="list-group-item">
+                        Available addresses (<a href="/settings">Add another?</a>):
+                        <select name="address" class="form-control">
+                            {% for address in addresses %}
+                                <option value="{{ address[1] }}"
+                                        {% if address[1] == primary_address %} selected {% endif %}>
+                                    {{ address[3] }} {{ address[4] }}, {{ address[5] }}, {{ address[6] }} {{ address[7] }} {{ address[8] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="panel-footer">
+                    <a href="/checkout/review" class="btn btn-danger">Cancel</a>
+                    <input type="submit" class="btn btn-success pull-right" value="Check out" />
+                </div>
+            </div>
+        </form>
+    </div>
+{% endblock %}

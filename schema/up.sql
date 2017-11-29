@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS flight_class (
   flight_id SERIAL NOT NULL REFERENCES flight (id),
   class_id SERIAL NOT NULL REFERENCES class (id),
   capacity INT NOT NULL,
+	price MONEY,
   PRIMARY KEY (flight_id, class_id)
 );
 

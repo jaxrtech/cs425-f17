@@ -1,7 +1,7 @@
 import psycopg2 as pg
-from flask import Flask, request, redirect, render_template
+from flask import Flask, request, redirect, render_template, session, g
 from flask_bootstrap import Bootstrap
-from flask_login import LoginManager, login_user, logout_user
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import datetime
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
@@ -10,6 +10,7 @@ Bootstrap(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.login_view = '.login'
 
 app.secret_key = 'ak;sljmdfvijkldsfvbnmiouaervmuiw4remivou'
 
@@ -39,6 +40,11 @@ def load_user(user_id):
         if u:
             return User(name=u[0], email=user_id, id=u[1])
         return None
+
+
+@app.before_request
+def load_cart():
+    pass
 
 
 @app.route('/', methods=['GET'])
@@ -128,6 +134,53 @@ def search():
                                    airline=request.form['airline'],
                                    flights=results)
 
+
+@app.route('/checkout/review')
+@login_required
+def checkout_review():
+    # cart will be a set of tuples of the form (flight_id, class_id)
+    session['cart'] = [(2,2),]
+    with db.cursor() as cur:
+        cur.execute("SELECT * FROM flight_class FULL JOIN flight ON flight_class.flight_id=flight.id NATURAL JOIN class WHERE flight_id IN %s AND class_id IN %s ;",
+                    (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+        cart = cur.fetchall()
+        cur.execute("SELECT SUM(price) FROM flight_class WHERE flight_id IN %s AND class_id IN %s ;",
+                    (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+        total = cur.fetchone()[0]
+        return render_template('checkout/review.html', cart=cart, total=total)
+
+
+@app.route('/checkout/payment')
+@login_required
+def checkout_payment():
+    with db.cursor() as cur:
+        cur.execute("SELECT SUM(price) FROM flight_class WHERE flight_id IN %s AND class_id IN %s ;",
+                    (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+        total = cur.fetchone()[0]
+
+        cur.execute("SELECT primary_payment_id, primary_address_id FROM customer WHERE id=%s", (current_user.id,))
+        primaries = cur.fetchone()
+
+        cur.execute("SELECT id, display_name FROM payment_method WHERE customer_id=%s",
+                    (current_user.id,))
+        payments = cur.fetchall()
+
+        cur.execute("SELECT * FROM customer_address FULL JOIN address ON customer_address.address_id = address.id WHERE customer_id=%s",
+                    (current_user.id,))
+        addresses = cur.fetchall()
+
+        return render_template('checkout/payment.html',
+                               total=total,
+                               primary_payment=primaries[0],
+                               primary_address=primaries[1],
+                               payment_methods=payments,
+                               addresses=addresses)
+
+
+@app.route('/checkout/finish')
+@login_required
+def checkout_finish():
+    return render_template('checkout/finish.html')
 
 
 @app.route('/logout')
