@@ -52,6 +52,7 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/login', methods=['GET', 'POST'])
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
@@ -71,6 +72,7 @@ def login():
             return render_template('login.html', next=request.form['next'], error='Incorrect login!')
 
 
+@app.route('/register', methods=['GET', 'POST'])
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
     if request.method == 'GET':
@@ -104,6 +106,7 @@ def register():
                 return render_template('register.html', next=request.args.get('next'), error=e)
 
 
+@app.route('/search', methods=['GET', 'POST'])
 @app.route('/search/', methods=['GET', 'POST'])
 def search():
     with db.cursor() as cur:
@@ -155,6 +158,7 @@ def setprimary_address(address):
         return redirect('/settings')
 
 
+@app.route('/settings/addresses/add', methods=['GET', 'POST'])
 @app.route('/settings/addresses/add/', methods=['GET', 'POST'])
 @login_required
 def add_address():
@@ -275,6 +279,7 @@ def checkout_payment():
                                addresses=addresses)
 
 
+@app.route('/checkout/finish', methods=['POST'])
 @app.route('/checkout/finish/', methods=['POST'])
 @login_required
 def checkout_finish():
