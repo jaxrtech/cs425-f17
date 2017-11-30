@@ -62,9 +62,12 @@ def login():
     email = request.form['email']
     password = request.form['password']
     with db.cursor() as cur:
-        cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s::TEXT AND password=crypt(%s, password)",
-                    (email.lower(), password))
-        u = cur.fetchone()
+        try:
+            cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s::TEXT AND password=crypt(%s, password)",
+                        (email.lower(), password))
+            u = cur.fetchone()
+        except:
+            return render_template('login.html', next=request.form['next'], error='Incorrect login!')
         if u:
             login_user(User(name=u[0], email=email.lower(), id=u[1]), remember=request.form.get('remember'))
             # next = request.form.get('next')
@@ -201,7 +204,6 @@ def setprimary_payment(payment):
         db.commit()
 
         return redirect('/settings')
-
 
 @app.route('/settings/')
 @login_required
