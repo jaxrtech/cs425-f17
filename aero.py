@@ -52,7 +52,7 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login/', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html', next=request.args.get('next'))
@@ -71,7 +71,7 @@ def login():
             return render_template('login.html', next=request.form['next'], error='Incorrect login!')
 
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register/', methods=['GET', 'POST'])
 def register():
     if request.method == 'GET':
         return render_template('register.html', next=request.args.get('next'))
@@ -104,7 +104,7 @@ def register():
                 return render_template('register.html', next=request.args.get('next'), error=e)
 
 
-@app.route('/search', methods=['GET', 'POST'])
+@app.route('/search/', methods=['GET', 'POST'])
 def search():
     with db.cursor() as cur:
         if request.method == 'GET':
@@ -135,27 +135,7 @@ def search():
                                    flights=results)
 
 
-@app.route('/settings')
-@login_required
-def user_settings():
-    with db.cursor() as cur:
-        cur.execute("SELECT primary_payment_id, primary_address_id FROM customer WHERE id=%s", (current_user.id,))
-        primaries = cur.fetchone()
-
-        cur.execute("SELECT id, display_name FROM payment_method WHERE customer_id=%s",
-                    (current_user.id,))
-        payments = cur.fetchall()
-
-        cur.execute(
-            "SELECT * FROM customer_address FULL JOIN address ON customer_address.address_id = address.id WHERE customer_id=%s",
-            (current_user.id,))
-        addresses = cur.fetchall()
-        
-        
-    return render_template('settings.html', primaries=primaries, payment_methods=payments, addresses=addresses)
-
-
-@app.route('/settings/addresses/remove/<int:address>')
+@app.route('/settings/addresses/remove/<int:address>/')
 @login_required
 def remove_address(address):
     with db.cursor() as cur:
@@ -165,7 +145,7 @@ def remove_address(address):
         return redirect('/settings')
 
 
-@app.route('/settings/addresses/setprimary/<int:address>')
+@app.route('/settings/addresses/setprimary/<int:address>/')
 @login_required
 def setprimary_address(address):
     with db.cursor() as cur:
@@ -175,7 +155,7 @@ def setprimary_address(address):
         return redirect('/settings')
 
 
-@app.route('/settings/addresses/add', methods=['POST'])
+@app.route('/settings/addresses/add/', methods=['GET', 'POST'])
 @login_required
 def add_address():
     with db.cursor() as cur:
@@ -197,7 +177,7 @@ def add_address():
         return redirect('/settings')
 
 
-@app.route('/settings/payments/remove/<int:payment>')
+@app.route('/settings/payments/remove/<int:payment>/')
 @login_required
 def remove_payment(payment):
     with db.cursor() as cur:
@@ -207,7 +187,7 @@ def remove_payment(payment):
         return redirect('/settings')
 
 
-@app.route('/settings/payments/setprimary/<int:payment>')
+@app.route('/settings/payments/setprimary/<int:payment>/')
 @login_required
 def setprimary_payment(payment):
     with db.cursor() as cur:
@@ -218,24 +198,42 @@ def setprimary_payment(payment):
         return redirect('/settings')
 
 
-@app.route('/select/<int:flight_id>/<int:class_id>')
+@app.route('/settings/')
+@login_required
+def user_settings():
+    with db.cursor() as cur:
+        cur.execute("SELECT primary_payment_id, primary_address_id FROM customer WHERE id=%s", (current_user.id,))
+        primaries = cur.fetchone()
+
+        cur.execute("SELECT id, display_name FROM payment_method WHERE customer_id=%s",
+                    (current_user.id,))
+        payments = cur.fetchall()
+
+        cur.execute(
+            "SELECT * FROM customer_address FULL JOIN address ON customer_address.address_id = address.id WHERE customer_id=%s",
+            (current_user.id,))
+        addresses = cur.fetchall()
+
+    return render_template('settings.html', primaries=primaries, payment_methods=payments, addresses=addresses)
+
+
+@app.route('/select/<int:flight_id>/<int:class_id>/')
 @login_required
 def select_flight(flight_id, class_id):
-    if not session['cart']:
-        session['cart'] = list()
+    session.setdefault('cart', list())
 
     session['cart'].append((flight_id, class_id))
     return redirect('/search')
 
 
-@app.route('/clear')
+@app.route('/clear/')
 @login_required
 def clear_cart():
     session['cart'] = list()
     return redirect('/search')
 
 
-@app.route('/checkout/review')
+@app.route('/checkout/review/')
 @login_required
 def checkout_review():
     # cart will be a set of tuples of the form (flight_id, class_id)
@@ -250,7 +248,7 @@ def checkout_review():
         return render_template('checkout/review.html', cart=cart, total=total)
 
 
-@app.route('/checkout/payment')
+@app.route('/checkout/payment/')
 @login_required
 def checkout_payment():
     with db.cursor() as cur:
@@ -277,7 +275,7 @@ def checkout_payment():
                                addresses=addresses)
 
 
-@app.route('/checkout/finish', methods=['POST'])
+@app.route('/checkout/finish/', methods=['POST'])
 @login_required
 def checkout_finish():
     with db.cursor() as cur:
@@ -312,7 +310,7 @@ def checkout_finish():
         return render_template('checkout/finish.html', total=total, itinerary=itinerary)
 
 
-@app.route('/logout')
+@app.route('/logout/')
 def logout():
     logout_user()
     return redirect('/')
