@@ -13,6 +13,7 @@ login_manager.init_app(app)
 login_manager.login_view = '.login'
 
 app.secret_key = 'ak;sljmdfvijkldsfvbnmiouaervmuiw4remivou'
+app.url_map.strict_slashes = False
 
 db = pg.connect(dbname='aero', user='aero', password='hunter2', host='127.0.0.1')
 

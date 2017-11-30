@@ -52,11 +52,11 @@
             </div>
             <div class="list-group">
                 {% for address in addresses %}
-                    <div class="list-group-item {{ "active" if address[0]==primaries[1] }}">
+                    <div class="list-group-item {{ "active" if address[1]==primaries[1] }}">
                         <div class="pull-right">
-                            <a href="/settings/addresses/remove/{{ address[0] }}" class="btn btn-danger"><i
+                            <a href="/settings/addresses/remove/{{ address[1] }}" class="btn btn-danger"><i
                                     class="glyphicon glyphicon-remove"></i></a>
-                            <a href="/settings/addresses/setprimary/{{ address[0] }}" class="btn btn-primary"><i
+                            <a href="/settings/addresses/setprimary/{{ address[1] }}" class="btn btn-primary"><i
                                     class="glyphicon glyphicon-check"></i></a>
                         </div>
                         <address>
