@@ -34,7 +34,7 @@
                             <input type="text" name="airline" value="{{ airline }}" class="form-control" placeholder="DL" />
                         </div>
                     </div>
-                    <div class="panel-footer">
+                    <div class="panel-footer text-right">
                         <input type="submit" value="Search" class="btn btn-primary" />
                     </div>
                 </div>
@@ -43,12 +43,19 @@
         <div class="col-sm-8">
             <div class="panel panel-default">
                 <div class="list-group">
-                    {% for flight in flights %}
-                    <div class="list-group-item">
-                        <a class="btn btn-primary pull-right" href="/select/{{ flight[0] }}/1">Select this flight --></a>
-                        <h2>{{ flight[6] }}{{ flight[1] }}</h2>
-                    </div>
-                    {% endfor %}
+                    {% if flights %}
+                        {% for flight in flights %}
+                            <div class="list-group-item">
+                                <a class="btn btn-primary pull-right" href="/select/{{ flight[0] }}/1">Select this flight --></a>
+                                <h2>{{ flight[6] }}{{ flight[1] }}</h2>
+                            </div>
+                        {% endfor %}
+
+                    {% else %}
+                        <div class="list-group-item">
+                            Your search didn't match any available flights.
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
