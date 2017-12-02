@@ -28,7 +28,7 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         {% if current_user.is_authenticated %}
-        <li><a href="#">Hi, {{ current_user.name }}</a></li>
+        <li><a href="/settings">Hi, {{ current_user.name }}</a></li>
         <li><a href="/logout?next={{ request.path }}">Sign out</a></li>
         {% else %}
         <li><a href="/login?next={{ request.path }}">Sign In</a></li>
