@@ -1,8 +1,12 @@
+from collections import namedtuple
+
 import psycopg2 as pg
-from flask import Flask, request, redirect, render_template, session, g
+from psycopg2.extensions import cursor as pgcursor
+from flask import Flask, request, redirect, render_template, session, abort
 from flask_bootstrap import Bootstrap
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import datetime
+import env
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 
@@ -15,7 +19,38 @@ login_manager.login_view = '.login'
 app.secret_key = 'ak;sljmdfvijkldsfvbnmiouaervmuiw4remivou'
 app.url_map.strict_slashes = False
 
-db = pg.connect(dbname='aero', user='aero', password='hunter2', host='127.0.0.1')
+
+class FancyCursor(pgcursor):
+    def __init__(self, *args, **kwargs):
+        super(FancyCursor, self).__init__(*args, **kwargs)
+
+    def make_dto(self, clazz, row):
+        return clazz(**dict(list(zip(map(lambda x: x.name, self.description), row))))
+
+    def fetchone(self, clazz=None):
+        row = pgcursor.fetchone(self)
+        if clazz:
+            return self.make_dto(clazz, row)
+        else:
+            return row
+
+    def fetchall(self, clazz=None):
+        rows = pgcursor.fetchall(self)
+        if clazz:
+            return list(map(lambda r: self.make_dto(clazz, r), rows))
+        else:
+            return rows
+
+
+db = pg.connect(
+    cursor_factory=FancyCursor,
+    dbname=env.DB_NAME,
+    user=env.DB_USER,
+    password=env.DB_PASSWORD,
+    host=env.DB_HOST,
+    port=env.DB_PORT)
+
+transaction = db
 
 
 class User:
@@ -30,6 +65,17 @@ class User:
 
     def get_id(self):
         return self.email
+
+
+AddressDto = namedtuple('AddressDto',
+                        ['id',
+                         'customer_id',
+                         'line_1',
+                         'line_2',
+                         'city',
+                         'province',
+                         'postal_code',
+                         'country'])
 
 
 @login_manager.user_loader
@@ -54,7 +100,6 @@ def index():
 
 
 @app.route('/login', methods=['GET', 'POST'])
-@app.route('/login/', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html', next=request.args.get('next'))
@@ -66,7 +111,7 @@ def login():
             cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s::TEXT AND password=crypt(%s, password)",
                         (email.lower(), password))
             u = cur.fetchone()
-        except:
+        except pg.Error:
             return render_template('login.html', next=request.form['next'], error='Incorrect login!')
         if u:
             login_user(User(name=u[0], email=email.lower(), id=u[1]), remember=request.form.get('remember'))
@@ -77,7 +122,6 @@ def login():
 
 
 @app.route('/register', methods=['GET', 'POST'])
-@app.route('/register/', methods=['GET', 'POST'])
 def register():
     if request.method == 'GET':
         return render_template('register.html', next=request.args.get('next'))
@@ -111,7 +155,6 @@ def register():
 
 
 @app.route('/search', methods=['GET', 'POST'])
-@app.route('/search/', methods=['GET', 'POST'])
 def search():
     with db.cursor() as cur:
         if request.method == 'GET':
@@ -120,20 +163,31 @@ def search():
                                    to_airport='CDG',
                                    dep_date=datetime.date.today(),
                                    airline='DL')
+
         else:
             dep_date = datetime.date(year=int(request.form['dep_date_year']),
                                      month=int(request.form['dep_date_month']),
                                      day=int(request.form['dep_date_day']))
             dep_date_max = dep_date + datetime.timedelta(days=1)
-            #cur.execute('SELECT * FROM flight;')
-            cur.execute("SELECT * FROM flight WHERE departure_airport=%s AND arrival_airport=%s AND %s <= departure_time\
-                        AND %s >= departure_time AND airline=%s",
-                        (request.form['from_airport'],
-                         request.form['to_airport'],
-                         dep_date,
-                         dep_date_max,
-                         request.form['airline']))
+
+            cur.execute(
+                """
+                SELECT *
+                FROM flight
+                WHERE departure_airport = %s
+                  AND arrival_airport= %s
+                  AND %s <= departure_time
+                  AND %s >= departure_time
+                  AND airline=%s
+                """,
+                (request.form['from_airport'],
+                 request.form['to_airport'],
+                 dep_date,
+                 dep_date_max,
+                 request.form['airline']))
+
             results = cur.fetchall()
+
             return render_template('search.html',
                                    from_airport=request.form['from_airport'],
                                    to_airport=request.form['to_airport'],
@@ -156,75 +210,156 @@ def remove_address(address):
 @login_required
 def setprimary_address(address):
     with db.cursor() as cur:
-        cur.execute("UPDATE customer SET primary_address_id=%s WHERE id=%s",
+        cur.execute("""
+                    UPDATE customer
+                    SET primary_address_id = %s
+                    WHERE id = %s
+                    """,
                     (address, current_user.id))
 
         return redirect('/settings')
 
 
 @app.route('/settings/addresses/add', methods=['GET', 'POST'])
-@app.route('/settings/addresses/add/', methods=['GET', 'POST'])
 @login_required
 def add_address():
+    with transaction:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO address (line_1, line_2, city, province, postal_code, country)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (request.form['line1'],
+                 request.form['line2'] or '',
+                 request.form['city'],
+                 request.form['province'],
+                 request.form['post'],
+                 request.form['country'],))
+            address_id = cur.fetchone()[0]
+
+            cur.execute(
+                "INSERT INTO customer_address (customer_id, address_id) VALUES (%s, %s)",
+                (current_user.id, address_id))
+
+            db.commit()
+
+            return redirect('/settings')
+
+
+def try_parse(f, text):
+    try:
+        return f(text)
+    except ValueError as e:
+        return abort(400, e)
+
+
+@app.route('/settings/payments/add', methods=['POST'])
+@login_required
+def add_payment():
     with db.cursor() as cur:
-        cur.execute("INSERT INTO address VALUES (DEFAULT, %s, %s, %s, %s, %s, %s) RETURNING id",
-                    (request.form['line1'],
-                     request.form['line2'] if request.form['line2'] else '',
-                     request.form['city'],
-                     request.form['province'],
-                     request.form['post'],
-                     request.form['country'],))
-        address_id = cur.fetchone()[0]
+        card_number = request.form['card_number']
 
-        cur.execute('INSERT INTO customer_address VALUES (%s, %s)',
-                    (current_user.id,
-                     address_id))
+        exp_year = try_parse(int, request.form['exp_year'])
+        exp_month = try_parse(int, request.form['exp_month'])
+        exp_day = 1
+        exp_date = '{}-{}-{}'.format(exp_year, exp_month, exp_day)
 
-        db.commit()
+        card_holder = request.form['card_holder']
+        display_name = "Visa " + card_number[:4]
+
+        address_id = request.form['address_id']
+
+        cur.execute(
+            """
+            INSERT INTO payment_method (customer_id, card_number, exp, card_holder, display_name, billing_address)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (current_user.id,
+             card_number,
+             exp_date,
+             card_holder,
+             display_name,
+             address_id))
 
         return redirect('/settings')
 
 
-@app.route('/settings/payments/remove/<int:payment>/')
+@app.route('/settings/payments/remove/<int:payment>', methods=['GET'])
 @login_required
 def remove_payment(payment):
     with db.cursor() as cur:
-        cur.execute("DELETE FROM customer_address WHERE address_id=%s AND customer_id=%s",
-                    (payment, current_user.id))
+        cur.execute(
+            """
+            DELETE FROM customer_address
+            WHERE address_id = %s AND customer_id = %s
+            """,
+            (payment, current_user.id))
 
         return redirect('/settings')
 
 
-@app.route('/settings/payments/setprimary/<int:payment>/')
+@app.route('/settings/payments/setprimary/<int:payment>', methods=['GET'])
 @login_required
 def setprimary_payment(payment):
     with db.cursor() as cur:
-        cur.execute("UPDATE customer SET primary_payment_id=%s WHERE id=%s",
+        cur.execute("UPDATE customer SET primary_payment_id = %s WHERE id=%s",
                     (payment, current_user.id))
         db.commit()
 
         return redirect('/settings')
 
-@app.route('/settings/')
+
+@app.route('/settings')
 @login_required
 def user_settings():
     with db.cursor() as cur:
-        cur.execute("SELECT primary_payment_id, primary_address_id FROM customer WHERE id=%s", (current_user.id,))
+        cur.execute(
+            """
+            SELECT primary_payment_id, primary_address_id
+            FROM customer
+            WHERE id = %s
+            """,
+            (current_user.id,))
         primaries = cur.fetchone()
 
-        cur.execute("SELECT id, display_name FROM payment_method WHERE customer_id=%s",
-                    (current_user.id,))
+        cur.execute(
+            """
+            SELECT id, display_name
+            FROM payment_method
+            WHERE customer_id = %s
+            """,
+            (current_user.id,))
         payments = cur.fetchall()
 
         cur.execute(
-            "SELECT * FROM customer_address FULL JOIN address ON customer_address.address_id = address.id WHERE customer_id=%s",
+            """
+            SELECT
+              ca.customer_id,
+              ca.address_id as id,
+              address.line_1,
+              address.line_2,
+              address.city,
+              address.province,
+              address.postal_code,
+              address.country
+            FROM customer_address ca
+              FULL OUTER JOIN address
+                ON ca.address_id = address.id
+            WHERE ca.customer_id = %s
+            """,
             (current_user.id,))
-        addresses = cur.fetchall()
 
-    return render_template('settings.html', primaries=primaries, payment_methods=payments, addresses=addresses)
+        addresses = cur.fetchall(AddressDto)
+
+        return render_template('settings.html',
+                               primaries=primaries,
+                               payment_methods=payments,
+                               addresses=addresses)
 
 
-@app.route('/select/<int:flight_id>/<int:class_id>/')
+@app.route('/select/<int:flight_id>/<int:class_id>')
 @login_required
 def select_flight(flight_id, class_id):
     session.setdefault('cart', list())
@@ -233,29 +368,45 @@ def select_flight(flight_id, class_id):
     return redirect('/search')
 
 
-@app.route('/clear/')
+@app.route('/clear')
 @login_required
 def clear_cart():
     session['cart'] = list()
     return redirect('/search')
 
 
-@app.route('/checkout/review/')
+@app.route('/checkout/review')
 @login_required
 def checkout_review():
     # cart will be a set of tuples of the form (flight_id, class_id)
     session['cart'] = [(2,2),]
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM flight_class FULL JOIN flight ON flight_class.flight_id=flight.id NATURAL JOIN class WHERE flight_id IN %s AND class_id IN %s ;",
-                    (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+        cur.execute(
+            """
+            SELECT id, display_name
+            FROM flight_class
+              FULL OUTER JOIN flight
+                ON flight_class.flight_id = flight.id 
+              NATURAL JOIN class
+            WHERE (flight_id IN %s) AND (class_id IN %s)
+            """,
+            (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+
         cart = cur.fetchall()
-        cur.execute("SELECT SUM(price) FROM flight_class WHERE flight_id IN %s AND class_id IN %s ;",
-                    (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+
+        cur.execute(
+            """
+            SELECT SUM(price)
+            FROM flight_class
+            WHERE (flight_id IN %s) AND (class_id IN %s)
+            """,
+            (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
         total = cur.fetchone()[0]
+
         return render_template('checkout/review.html', cart=cart, total=total)
 
 
-@app.route('/checkout/payment/')
+@app.route('/checkout/payment')
 @login_required
 def checkout_payment():
     with db.cursor() as cur:
@@ -270,8 +421,15 @@ def checkout_payment():
                     (current_user.id,))
         payments = cur.fetchall()
 
-        cur.execute("SELECT * FROM customer_address FULL JOIN address ON customer_address.address_id = address.id WHERE customer_id=%s",
-                    (current_user.id,))
+        cur.execute(
+            """
+            SELECT *
+            FROM customer_address
+              LEFT JOIN address
+                ON customer_address.address_id = address.id
+            WHERE customer_id = %s
+            """,
+            (current_user.id,))
         addresses = cur.fetchall()
 
         return render_template('checkout/payment.html',
@@ -283,13 +441,10 @@ def checkout_payment():
 
 
 @app.route('/checkout/finish', methods=['POST'])
-@app.route('/checkout/finish/', methods=['POST'])
 @login_required
 def checkout_finish():
     with db.cursor() as cur:
         # if we had actual payments, we'd handle that here
-
-
         leg = 0;
         confirmations = list()
         for f in session['cart']:
@@ -304,7 +459,14 @@ def checkout_finish():
             db.commit()
 
         cur.execute(
-            "SELECT * FROM flight_class FULL JOIN flight ON flight_class.flight_id=flight.id NATURAL JOIN class WHERE flight_id IN %s AND class_id IN %s ;",
+            """
+            SELECT *
+            FROM flight_class
+              FULL JOIN flight
+                ON flight_class.flight_id = flight.id
+              NATURAL JOIN class
+            WHERE (flight_id IN %s) AND (class_id IN %s)
+            """,
             (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
 
         itinerary = list()

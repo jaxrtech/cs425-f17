@@ -8,12 +8,12 @@
             <div class="list-group">
                 {% for method in payment_methods %}
                     <div class="list-group-item {{ "active" if method[0]==primaries[0] }}">
-                        <h1>{{ method[1] }}<a href="/settings/payment/remove/{{ method[0] }}"
+                        <h1>{{ method[1] }}<a href="/settings/payments/remove/{{ method[0] }}"
                                               class="btn btn-danger pull-right">Remove</a></h1>
                     </div>
                 {% endfor %}
                 <div class="list-group-item">
-                    <form action="/settings/payment/add" method="post">
+                    <form action="/settings/payments/add" method="post">
                         <div class="form-group">
                             <label for="card_number">Card number</label>
                             <input type="tel" name="card_number" class="form-control"/>
@@ -27,16 +27,16 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="name">Name on card</label>
-                            <input type="text" name="name" class="form-control" placeholder="{{ current_user.name }}"/>
+                            <label for="card_holder">Name on card</label>
+                            <input type="text" name="card_holder" class="form-control" placeholder="{{ current_user.name }}"/>
                         </div>
                         <div class="form-group">
-                            <label for="address">Address</label>
-                            <select name="address" class="form-control">
+                            <label for="address_id">Address</label>
+                            <select name="address_id" class="form-control">
                                 {% for address in addresses %}
-                                    <option value="{{ address[1] }}"
-                                            {% if address[1] == primary_address %} selected {% endif %}>
-                                        {{ address[3] }} {{ address[4] }}, {{ address[5] }}, {{ address[6] }} {{ address[7] }} {{ address[8] }}
+                                    <option value="{{ address.id }}"
+                                            {% if address.id == primary_address %} selected {% endif %}>
+                                        {{ address.line_1 }} {{ address.line_2 }}, {{ address.city }}, {{ address.province }} {{ address.postal_code }} {{ address.country }}
                                     </option>
                                 {% endfor %}
                             </select>
@@ -46,6 +46,7 @@
                 </div>
             </div>
         </div>
+
         <div class="panel panel-default">
             <div class="panel-heading">
                 Addresses
@@ -54,19 +55,21 @@
                 {% for address in addresses %}
                     <div class="list-group-item {{ "active" if address[1]==primaries[1] }}">
                         <div class="pull-right">
-                            <a href="/settings/addresses/remove/{{ address[1] }}" class="btn btn-danger"><i
-                                    class="glyphicon glyphicon-remove"></i></a>
-                            <a href="/settings/addresses/setprimary/{{ address[1] }}" class="btn btn-primary"><i
-                                    class="glyphicon glyphicon-check"></i></a>
+                            <a href="/settings/addresses/remove/{{ address[1] }}" class="btn btn-danger">
+                                <i class="glyphicon glyphicon-remove"></i>
+                            </a>
+                            <a href="/settings/addresses/setprimary/{{ address[1] }}" class="btn btn-primary">
+                                <i class="glyphicon glyphicon-check"></i>
+                            </a>
                         </div>
                         <address>
                             <strong>{{ current_user.name }}</strong><br/>
-                            {{ address[3] }}<br/>
-                            {% if address[4] %}
-                                {{ address[4] }}<br/>
+                            {{ address.line_1 }}<br/>
+                            {% if address.line_2 %}
+                                {{ address.line_2 }}<br/>
                             {% endif %}
-                            {{ address[5] }}, {{ address[6] }} {{ address[7] }}<br/>
-                            {{ address[8] }}
+                            {{ address.city }}, {{ address.province }} {{ address.postal_code }}<br/>
+                            {{ address.country }}
                         </address>
                     </div>
                 {% endfor %}
