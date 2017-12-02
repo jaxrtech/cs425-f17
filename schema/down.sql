@@ -15,4 +15,6 @@ DROP TABLE IF EXISTS payment_method CASCADE;
 DROP TABLE IF EXISTS flight_class CASCADE;
 DROP TABLE IF EXISTS customer_address CASCADE;
 
+DROP USER aero;
+
 COMMIT;

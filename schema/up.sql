@@ -4,6 +4,16 @@
 
 BEGIN;
 
+CREATE USER aero WITH
+	LOGIN
+	NOSUPERUSER
+	NOCREATEDB
+	NOCREATEROLE
+	INHERIT
+	NOREPLICATION
+	CONNECTION LIMIT -1
+	PASSWORD 'hunter2';
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE DOMAIN iata_code AS CHAR(3);
@@ -86,20 +96,6 @@ CREATE TABLE IF NOT EXISTS class (
 GRANT SELECT, REFERENCES ON TABLE class TO aero;
 
 
--- ticket
-CREATE TABLE IF NOT EXISTS ticket (
-	id SERIAL NOT NULL PRIMARY KEY,
-	price MONEY NOT NULL,
-	leg INT NOT NULL,
-	flight SERIAL NOT NULL REFERENCES flight (id),
-	customer_id SERIAL NOT NULL REFERENCES customer (id),
-	paid_with SERIAL NOT NULL REFERENCES payment_method (id),
-  class_id SERIAL NOT NULL REFERENCES class (id)
-);
-
-GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLE ticket TO aero;
-
-
 -- payment_method
 CREATE TABLE IF NOT EXISTS payment_method (
 	id SERIAL NOT NULL PRIMARY KEY,
@@ -114,6 +110,20 @@ CREATE TABLE IF NOT EXISTS payment_method (
 ALTER TABLE customer ADD FOREIGN KEY (primary_payment_id) REFERENCES payment_method (id) DEFERRABLE;
 
 GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLE payment_method TO aero;
+
+
+-- ticket
+CREATE TABLE IF NOT EXISTS ticket (
+	id SERIAL NOT NULL PRIMARY KEY,
+	price MONEY NOT NULL,
+	leg INT NOT NULL,
+	flight SERIAL NOT NULL REFERENCES flight (id),
+	customer_id SERIAL NOT NULL REFERENCES customer (id),
+	paid_with SERIAL NOT NULL REFERENCES payment_method (id),
+  class_id SERIAL NOT NULL REFERENCES class (id)
+);
+
+GRANT SELECT, UPDATE, INSERT, DELETE, REFERENCES ON TABLE ticket TO aero;
 
 
 -- flight_class
