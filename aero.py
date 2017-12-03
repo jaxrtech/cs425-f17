@@ -165,9 +165,7 @@ def search():
                                    airline='DL')
 
         else:
-            dep_date = datetime.date(year=int(request.form['dep_date_year']),
-                                     month=int(request.form['dep_date_month']),
-                                     day=int(request.form['dep_date_day']))
+            dep_date = datetime.datetime.strptime(request.form['dep_date'], '%m/%d/%Y')
             dep_date_max = dep_date + datetime.timedelta(days=1)
 
             cur.execute(

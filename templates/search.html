@@ -1,4 +1,28 @@
 {% extends "layout.html" %}
+
+{% block styles %}
+    {{ super() }}
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/css/bootstrap-datepicker3.min.css" integrity="sha384-CuqHLZbw4yxoE4YzgqWDF9Xrv8YfD8Y20i+/gwL3e1+fYEj0wjLBmkCotf113/g/" crossorigin="anonymous">
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/js/bootstrap-datepicker.min.js" integrity="sha384-w48xMCwgWQu0zb3PvQI/rK5lfN6G+lSWu+qI4ukKZg3I5Xx3/VWA8IiaQ8O7tZur" crossorigin="anonymous"></script>
+
+    <script>
+        $(function () {
+            $('.form-date')
+                .datepicker({
+                    maxViewMode: 2, // years
+                    todayBtn: "linked",
+                    todayHighlight: true,
+                    autoclose: true
+                })
+                .datepicker('setDate', new Date());
+        });
+    </script>
+{% endblock %}
+
 {% block content %}
     <div class="container-fluid">
         <div class="col-sm-4">
@@ -18,16 +42,7 @@
                         </div>
                         <div class="form-group">
                             <label for="dep_date">On date</label>
-                            <div class="input-group">
-                                <input type="text" name="dep_date_month" value="{{ dep_date.month }}" class="form-control"
-                                        placeholder="MM"/>
-                                <div class="input-group-addon">/</div>
-                                <input type="text" name="dep_date_day" value="{{ dep_date.day }}" class="form-control"
-                                        placeholder="DD"/>
-                                <div class="input-group-addon">/</div>
-                                <input type="text" name="dep_date_year" value="{{ dep_date.year }}" class="form-control"
-                                        placeholder="YYYY"/>
-                            </div>
+                            <input type="text" name="dep_date" class="form-date form-control">
                         </div>
                         <div class="form-group">
                             <label for="airline">On airline</label>
