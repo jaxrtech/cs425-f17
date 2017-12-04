@@ -12,7 +12,7 @@ select
     f.arrival_airport,
     f.arrival_time,
     f.duration,
-    get_bit_positions(f.days) as days,
+    aero_get_bit_positions(f.days) as days,
     f.leg
   from
     flight_schedule f,

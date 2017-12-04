@@ -16,6 +16,10 @@ DROP TABLE IF EXISTS payment_method CASCADE;
 DROP TABLE IF EXISTS flight_class CASCADE;
 DROP TABLE IF EXISTS customer_address CASCADE;
 
+DROP FUNCTION IF EXISTS aero_approx_distance_mi(lat1 float, long1 float, lat2 float, long2 float);
+DROP FUNCTION IF EXISTS aero_ticket_price(distance FLOAT);
+DROP FUNCTION IF EXISTS aero_get_bit_positions(b bit varying);
+
 DROP OWNED BY aero CASCADE;
 DROP USER aero;
 

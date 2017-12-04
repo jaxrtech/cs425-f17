@@ -140,13 +140,23 @@ GRANT EXECUTE ON FUNCTION aero_approx_distance_mi(lat1 float, long1 float, lat2 
 
 -- fn aero_ticket_price
 CREATE OR REPLACE FUNCTION aero_ticket_price(distance FLOAT)
-RETURNS MONEY AS
+	RETURNS MONEY AS
 $$
   SELECT (distance * 0.032 + 230)::NUMERIC::MONEY;
 $$
 LANGUAGE SQL IMMUTABLE;
 
 GRANT EXECUTE ON FUNCTION aero_ticket_price(float) TO aero;
+
+
+-- fn aero_get_bit_positions
+CREATE OR REPLACE FUNCTION aero_get_bit_positions(b bit varying)
+	RETURNS integer[]
+AS $$
+  SELECT array_agg(i - 1)
+  FROM  (SELECT b, generate_series(1, length(b)) AS i) y
+  WHERE  substring(b, i, 1) = '1';
+$$ language sql immutable;
 
 
 -- class
