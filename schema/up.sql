@@ -108,11 +108,52 @@ CREATE TABLE flight_schedule (
 
 GRANT SELECT ON TABLE flight_schedule TO aero;
 
+-- fn aero_approx_distance_mi
+create or replace function aero_approx_distance_mi(lat1 float, long1 float, lat2 float, long2 float)
+returns float as
+$$
+  -- translated from SQL Server
+  -- https://stackoverflow.com/a/22476600/809572
+  declare
+    d float;
+  begin
+    -- Convert to radians
+    lat1 := lat1 / 57.2958;
+    long1 := long1 / 57.2958;
+    lat2 := lat2 / 57.2958;
+    long2 := long2 / 57.2958;
+
+    -- Calc distance
+    d := (sin(lat1) * sin(lat2)) + (cos(lat1) * cos(lat2) * cos(long2 - long1));
+
+    -- Convert to miles
+    if d <> 0 then
+      d := 3958.75 * atan(sqrt(1 - power(d, 2)) / d);
+    end if;
+
+    return d;
+  end
+$$ language plpgsql;
+
+GRANT EXECUTE ON FUNCTION aero_approx_distance_mi(lat1 float, long1 float, lat2 float, long2 float) TO aero;
+
+
+-- fn aero_ticket_price
+CREATE OR REPLACE FUNCTION aero_ticket_price(distance FLOAT)
+RETURNS MONEY AS
+$$
+  SELECT (distance * 0.032 + 230)::NUMERIC::MONEY;
+$$
+LANGUAGE SQL IMMUTABLE;
+
+GRANT EXECUTE ON FUNCTION aero_ticket_price(float) TO aero;
+
 
 -- class
 CREATE TABLE IF NOT EXISTS class (
 	id SERIAL NOT NULL PRIMARY KEY,
-	display_name TEXT NOT NULL
+	display_name TEXT NOT NULL,
+  fee MONEY NOT NULL CHECK (fee >= 0::money)
 );
 
 GRANT SELECT, REFERENCES ON TABLE class TO aero;

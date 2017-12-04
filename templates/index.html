@@ -3,11 +3,19 @@
 {% block styles %}
     {{ super() }}
     <style>
-        html, body {
-            background: url('/static/images/index_background.jpg');
+        .background-image {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: -1;
+            margin: -10px;
+
+            background: url('static/images/index_background.jpg');
             background-size: cover;
             background-position: center;
-            height: 100%;
+            filter: blur(4px);
         }
 
         .container {
@@ -17,13 +25,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="container">
-        <div class="jumbotron">
-            <h1>The world's favorite way to fly.</h1>
-            <p>What are you waiting for?</p>
-            <a href="/search" class="btn btn-primary btn-lg">Jump in now!</a>
+    <div class="background-image"></div>
+    <div class="container-fluid">
+        <div class="container">
+            <div class="jumbotron">
+                <h1>The world's favorite way to fly.</h1>
+                <p>What are you waiting for?</p>
+                <a href="/search" class="btn btn-primary btn-lg">Jump in now!</a>
+            </div>
         </div>
     </div>
-</div>
 {% endblock %}

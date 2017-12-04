@@ -19,15 +19,18 @@
             {% for flight in cart %}
                 <div class="list-group-item">
                     <h1>
-                        {{ flight[10] }}{{ flight[5] }}
+                        {{ flight.airline }}{{ flight.number }}
                         <small>
-                            {{ flight[8] }}
+                            {{ flight.departure_airport }}
                             <i class="glyphicon glyphicon-arrow-right"></i>
-                            {{ flight[9] }}
+                            {{ flight.arrival_airport }}
                         </small>
-                        <span class="pull-right">{{ flight[4] }}</span>
+                        <a href="/checkout/remove/{{ flight.flight_id }}/{{ flight.class_id }}" class="btn btn-danger pull-right">
+                            <i class="glyphicon glyphicon-remove"></i>
+                        </a>
+                        <span class="pull-right">{{ flight.price }}</span>
                     </h1>
-                    Departing at {{ flight[6].strftime('%H:%m on %m-%d-%y') }}
+                    Departing at {{ flight.departure_time.strftime('%H:%m on %m-%d-%y') }}
                 </div>
             {% endfor %}
             <div class="list-group-item list-group-item-success">

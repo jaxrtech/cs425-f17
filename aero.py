@@ -1,11 +1,12 @@
+import datetime
 from collections import namedtuple
 
 import psycopg2 as pg
-from psycopg2.extensions import cursor as pgcursor
-from flask import Flask, request, redirect, render_template, session, abort
+from flask import Flask, request, redirect, render_template, session, abort, json
 from flask_bootstrap import Bootstrap
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-import datetime
+from psycopg2.extensions import cursor as pgcursor
+
 import env
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
@@ -24,18 +25,25 @@ class FancyCursor(pgcursor):
     def __init__(self, *args, **kwargs):
         super(FancyCursor, self).__init__(*args, **kwargs)
 
-    def make_dto(self, clazz, row):
-        return clazz(**dict(list(zip(map(lambda x: x.name, self.description), row))))
+    def make_dict(self, row):
+        return dict(list(zip(map(lambda x: x.name, self.description), row)))
 
-    def fetchone(self, clazz=None):
+    def make_dto(self, clazz, row):
+        return clazz(**self.make_dict(row))
+
+    def fetchone(self, clazz=None, as_dict=False):
         row = pgcursor.fetchone(self)
-        if clazz:
+        if as_dict:
+            return self.make_dict(row)
+        elif clazz:
             return self.make_dto(clazz, row)
         else:
             return row
 
-    def fetchall(self, clazz=None):
+    def fetchall(self, clazz=None, as_dict=False):
         rows = pgcursor.fetchall(self)
+        if as_dict:
+            return list(map(lambda r: self.make_dict(r), rows))
         if clazz:
             return list(map(lambda r: self.make_dto(clazz, r), rows))
         else:
@@ -67,6 +75,13 @@ class User:
         return self.email
 
 
+def jsontuple(*args, **kwargs):
+    t = namedtuple(*args, **kwargs)
+    t.to_json = lambda self: json.dumps(vars(self))
+    t.from_json = lambda self, s: json.loads(s)
+    return t
+
+
 AddressDto = namedtuple(
     'AddressDto',
     ['id',
@@ -85,6 +100,11 @@ FlightDto = namedtuple(
      'number',
      'arrival_time',
      'departure_time'])
+
+CartFlight = jsontuple(
+    'CartFlight',
+    ['flight_id',
+     'class_id'])
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -166,46 +186,77 @@ def register():
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     with db.cursor() as cur:
-        if request.method == 'GET':
-            return render_template('search.html',
-                                   from_airport='ATL',
-                                   to_airport='CDG',
-                                   dep_date=datetime.date.today(),
-                                   airline='DL')
+        try:
+            if request.method == 'GET':
+                if current_user.is_authenticated:
+                    cur.execute('SELECT primary_airport_id FROM customer WHERE email ILIKE %s', (current_user.get_id(),))
+                    from_airport = cur.fetchone()[0]
+                else:
+                    from_airport = 'ORD'
 
-        else:
-            dep_date = datetime.datetime.strptime(request.form['dep_date'], '%m/%d/%Y')
+                to_airport = 'ATL'
+                dep_date = datetime.date.today()
+                airline = 'DL'
+                class_id = 1  # Economy
+
+            else:
+                dep_date = datetime.datetime.strptime(request.form['dep_date'], '%m/%d/%Y')
+                from_airport = request.form['from_airport']
+                to_airport = request.form['to_airport']
+                airline = request.form['airline']
+                class_id = request.form['class_id']
+
             dep_date_max = dep_date + datetime.timedelta(days=1)
-            try:
-                cur.execute(
-                    """
-                    SELECT id, airline, number, arrival_time, departure_time
-                    FROM flight
-                    WHERE departure_airport = %s
-                      AND arrival_airport = %s
-                      AND %s <= departure_time
-                      AND %s >= departure_time
-                      AND airline = %s
-                    """,
-                    (request.form['from_airport'],
-                     request.form['to_airport'],
-                     dep_date,
-                     dep_date_max,
-                     request.form['airline']))
 
-                results = cur.fetchall(FlightDto)
-            except pg.Error as e:
-                return render_template('search.html',
-                                   from_airport='ATL',
-                                   to_airport='CDG',
-                                   dep_date=datetime.date.today(),
-                                   airline='DL',error=e)
+            cur.execute('SELECT id, display_name FROM class ORDER BY id')
+            classes = cur.fetchall(as_dict=True)
+
+            cur.execute(
+                """
+                SELECT
+                  f.id,
+                  f.airline,
+                  f.number,
+                  f.departure_airport,
+                  f.departure_time,
+                  f.arrival_airport,
+                  f.arrival_time,
+                  fc.price
+                FROM flight f
+                INNER JOIN flight_class fc
+                  ON f.id = fc.flight_id
+                WHERE airline = %s
+                  AND departure_airport = %s
+                  AND arrival_airport = %s
+                  AND %s <= departure_time
+                  AND %s >= departure_time
+                  AND class_id = %s
+                """,
+                (airline,
+                 from_airport,
+                 to_airport,
+                 dep_date,
+                 dep_date_max,
+                 class_id))
+
+            results = cur.fetchall(as_dict=True)
+        except pg.Error as e:
             return render_template('search.html',
-                                   from_airport=request.form['from_airport'],
-                                   to_airport=request.form['to_airport'],
-                                   dep_date=dep_date,
-                                   airline=request.form['airline'],
-                                   flights=results)
+                                   classes=[],
+                                   from_airport='ATL',
+                                   to_airport='ORD',
+                                   dep_date=datetime.date.today(),
+                                   airline='DL',
+                                   error=e)
+
+        return render_template('search.html',
+                               from_airport=from_airport,
+                               to_airport=to_airport,
+                               dep_date=dep_date,
+                               airline=airline,
+                               flights=results,
+                               classes=classes,
+                               class_id=class_id)
 
 
 @app.route('/settings/addresses/remove/<int:address>/')
@@ -371,51 +422,82 @@ def user_settings():
                                addresses=addresses)
 
 
-@app.route('/select/<int:flight_id>/<int:class_id>')
+@app.route('/checkout/add/<int:flight_id>/<int:class_id>')
 @login_required
-def select_flight(flight_id, class_id):
-    session.setdefault('cart', list())
+def add_flight(flight_id, class_id):
+    cart = session['cart']
+    cart.append(CartFlight(flight_id, class_id))
+    session['cart'] = cart
 
-    session['cart'].append((flight_id, class_id))
-    return redirect('/search')
+    return redirect('/checkout/review')
 
 
-@app.route('/clear')
+@app.route('/checkout/remove/<int:flight_id>/<int:class_id>')
+@login_required
+def remove_flight(flight_id, class_id):
+    cart = session['cart'] or []
+    cart = [CartFlight(*attrs) for attrs in cart]
+    cart = list(filter(lambda f: f != CartFlight(flight_id, class_id), cart))
+    session['cart'] = cart
+
+    return redirect('/checkout/review')
+
+
+@app.route('/checkout/clear')
 @login_required
 def clear_cart():
-    session['cart'] = list()
+    session['cart'] = []
     return redirect('/search')
 
 
 @app.route('/checkout/review')
 @login_required
 def checkout_review():
-    # cart will be a set of tuples of the form (flight_id, class_id)
-    session['cart'] = [(2,2),]
+    cart = session['cart'] or []
+    cart = [CartFlight(*attrs) for attrs in cart]
+
     with db.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, display_name
-            FROM flight_class
-              FULL OUTER JOIN flight
-                ON flight_class.flight_id = flight.id 
-              NATURAL JOIN class
-            WHERE (flight_id IN %s) AND (class_id IN %s)
-            """,
-            (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+        if len(cart) > 0:
+            cur.execute(
+                """
+                SELECT
+                  fc.flight_id,
+                  fc.class_id,
+                  c.display_name as class_name,
+                  f.airline,
+                  f.number,
+                  f.departure_airport,
+                  f.departure_time,
+                  f.arrival_airport,
+                  f.arrival_time,
+                  fc.price
+                FROM flight_class fc
+                INNER JOIN flight f
+                  ON fc.flight_id = f.id 
+                INNER JOIN class c
+                  ON fc.class_id = c.id
+                WHERE (flight_id IN %s) AND (class_id IN %s)
+                """,
+                (tuple([f.flight_id for f in cart]),
+                 tuple([f.class_id for f in cart])))
 
-        cart = cur.fetchall()
+            flights = cur.fetchall(as_dict=True)
 
-        cur.execute(
-            """
-            SELECT SUM(price)
-            FROM flight_class
-            WHERE (flight_id IN %s) AND (class_id IN %s)
-            """,
-            (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
-        total = cur.fetchone()[0]
+            cur.execute(
+                """
+                SELECT SUM(price)
+                FROM flight_class
+                WHERE (flight_id IN %s) AND (class_id IN %s)
+                """,
+                (tuple([f.flight_id for f in cart]),
+                 tuple([f.class_id for f in cart])))
 
-        return render_template('checkout/review.html', cart=cart, total=total)
+            total = cur.fetchone()[0]
+        else:
+            flights = []
+            total = 0.00
+
+        return render_template('checkout/review.html', cart=flights, total=total)
 
 
 @app.route('/checkout/payment')

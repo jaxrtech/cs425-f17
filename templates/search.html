@@ -13,6 +13,16 @@
             margin-top: 0.15em;
             margin-bottom: 0.15em;
         }
+
+        .flight-item .btn {
+            margin-top: 5px;
+            margin-left: 0.5em;
+        }
+
+        .flight-title {
+            display: inline-block;
+            min-width: 3.5em;
+        }
     </style>
 {% endblock %}
 
@@ -43,11 +53,11 @@
                         Search
                     </div>
                     <div class="panel-body">
-			 {% if error %}
-                   	 <div class="alert alert-danger text-center">
-                       	 	<strong>{{ error }}</strong>
-                    	</div>
-                    	{% endif %}
+                        {% if error %}
+                            <div class="alert alert-danger text-center">
+                                <strong>{{ error }}</strong>
+                            </div>
+                        {% endif %}
                         <div class="form-group">
                             <label for="from">From / To</label>
                             <div class="input-group">
@@ -64,6 +74,14 @@
                             <label for="airline">On airline</label>
                             <input type="text" name="airline" value="{{ airline }}" class="form-control" placeholder="DL" />
                         </div>
+                        <div class="form-group">
+                            <label for="class_id">Class</label>
+                            <select name="class_id" class="form-control">
+                                {% for c in classes %}
+                                    <option value="{{ c.id }}">{{ c.display_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                     <div class="panel-footer text-right">
                         <input type="submit" value="Search" class="btn btn-primary" />
@@ -77,8 +95,19 @@
                     {% if flights %}
                         {% for flight in flights %}
                             <div class="flight-item list-group-item">
-                                <a class="btn btn-primary pull-right" href="/select/{{ flight.id }}/1">Select this flight <i class="glyphicon glyphicon-arrow-right"></i></a>
-                                <h2>{{ flight.airline }}{{ flight.number }}</h2>
+                                <a class="btn btn-primary pull-right" href="/checkout/add/{{ flight.id }}/{{ class_id }}">
+                                    Book this Flight
+                                    <i class="glyphicon glyphicon-arrow-right"></i>
+                                </a>
+                                <h2>
+                                    <span class="flight-title">{{ flight.airline }}{{ flight.number }}</span>
+                                    <small>
+                                        {{ flight.departure_airport }}
+                                        <i class="glyphicon glyphicon-arrow-right"></i>
+                                        {{ flight.arrival_airport }}
+                                    </small>
+                                    <span class="pull-right">{{ flight.price }}</span>
+                                </h2>
                                 {{ flight.departure_time.strftime('%I:%M %p') }}
                                 <i class="glyphicon glyphicon-arrow-right"></i>
                                 {{ flight.arrival_time.strftime('%I:%M %p') }}

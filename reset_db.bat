@@ -6,4 +6,5 @@ psql -p 5432 -d aero -U postgres ^
   -f ./sample_data/aero_airport.sql ^
   -f ./sample_data/aero_address.sql ^
   -f ./sample_data/aero_flight_schedule.sql ^
-  -f ./sample_data/aero_flight_schedule_transform.sql
+  -f ./sample_data/aero_flight.sql ^
+  -f ./sample_data/aero_flight_class.sql
