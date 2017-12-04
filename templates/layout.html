@@ -2,45 +2,62 @@
 {% block title %}Aero{% endblock %}
 
 {% block styles %}
-    {{ super() }}
+  {{ super() }}
 {% endblock styles %}
 
 {% block scripts %}
-    {{ super() }}
+  {{ super() }}
 {% endblock scripts %}
 
 {% block navbar %}
 
-<nav class="navbar navbar-default">
-  <div class="container-fluid">
-    <!-- Brand and toggle get grouped for better mobile display -->
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
-        <span class="sr-only">Toggle navigation</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </button>
-      <a class="navbar-brand" style="font-size:2em" href="/">Aero</a>
-    </div>
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <!-- Brand and toggle get grouped for better mobile display -->
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" style="font-size:2em" href="/">Aero</a>
+      </div>
 
-    <!-- Collect the nav links, forms, and other content for toggling -->
-    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-      <ul class="nav navbar-nav navbar-right">
-        {% if current_user.is_authenticated %}
-        <li><a href="/settings">Hi, {{ current_user.name }}</a></li>
-        <li><a href="/logout?next={{ request.path }}">Sign out</a></li>
-        {% else %}
-        <li><a href="/login?next={{ request.path }}">Sign In</a></li>
-        {% endif %}
-      </ul>
-    </div><!-- /.navbar-collapse -->
-  </div><!-- /.container-fluid -->
-</nav>
+      <!-- Collect the nav links, forms, and other content for toggling -->
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav navbar-right">
+          {% if current_user.is_authenticated %}
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                Hi, {{ current_user.name }} <span class="caret"></span>
+              </a>
+              <ul class="dropdown-menu">
+                <li><a href="/tickets">Tickets</a></li>
+                <li><a href="/settings">Settings</a></li>
+              </ul>
+            </li>
+            <li>
+              <button type="button" href="/logout?next={{ request.path }}" class="btn btn-default navbar-btn">
+                Sign out
+              </button>
+            </li>
+          {% else %}
+            <li>
+              <button type="button" href="/login?next={{ request.path }}" class="btn btn-default navbar-btn">
+                Sign in
+              </button>
+            </li>
+          {% endif %}
+        </ul>
+      </div><!-- /.navbar-collapse -->
+    </div><!-- /.container-fluid -->
+  </nav>
 
 {% endblock %}
 {% block content %}
-<div class="container-fluid">
-	<h1>Welcome to Aero</h1>
-</div>
+  <div class="container-fluid">
+    <h1>Welcome to Aero</h1>
+  </div>
 {% endblock %}

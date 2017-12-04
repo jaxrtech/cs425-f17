@@ -1,5 +1,6 @@
 import datetime
 from collections import namedtuple
+from urllib.parse import urlparse, parse_qs
 
 import psycopg2 as pg
 from flask import Flask, request, redirect, render_template, session, abort, json
@@ -34,7 +35,9 @@ class FancyCursor(pgcursor):
     def fetchone(self, clazz=None, as_dict=False):
         row = pgcursor.fetchone(self)
         if as_dict:
-            return self.make_dict(row)
+            d = self.make_dict(row)
+            t = namedtuple('Anon', d.keys())
+            return t(*d.values())
         elif clazz:
             return self.make_dto(clazz, row)
         else:
@@ -59,7 +62,6 @@ db = pg.connect(
     port=env.DB_PORT)
 
 transaction = db
-
 
 class User:
     def __init__(self, id, name, email):
@@ -106,15 +108,17 @@ CartFlight = jsontuple(
     ['flight_id',
      'class_id'])
 
+
 @login_manager.user_loader
 def load_user(user_id):
     with db.cursor() as cur:
-        cur.execute("SELECT name, id FROM customer WHERE email=%s", (user_id,))
+        cur.execute("SELECT name, id FROM customer WHERE email ILIKE %s", (user_id,))
 
-        u = cur.fetchone()
+        u = cur.fetchone(as_dict=True)
         if u:
-            return User(name=u[0], email=user_id, id=u[1])
-        return None
+            return User(name=u.name, email=user_id, id=u.id)
+        else:
+            return None
 
 
 @app.before_request
@@ -259,6 +263,18 @@ def search():
                                class_id=class_id)
 
 
+def redirect_or_next(url):
+    custom_redirect = request.args.get('next')
+    if not custom_redirect:
+        referrer_url = request.referrer
+        custom_redirect = parse_qs(urlparse(referrer_url).query).get('next')[0]
+
+    if custom_redirect:
+        return redirect(custom_redirect)
+    else:
+        return redirect(url)
+
+
 @app.route('/settings/addresses/remove/<int:address>/')
 @login_required
 def remove_address(address):
@@ -266,7 +282,7 @@ def remove_address(address):
         cur.execute("DELETE FROM customer_address WHERE address_id=%s AND customer_id=%s",
                     (address, current_user.id))
 
-        return redirect('/settings')
+        return redirect_or_next('/settings')
 
 
 @app.route('/settings/addresses/setprimary/<int:address>/')
@@ -280,7 +296,7 @@ def setprimary_address(address):
                     """,
                     (address, current_user.id))
 
-        return redirect('/settings')
+        return redirect_or_next('/settings')
 
 
 @app.route('/settings/addresses/add', methods=['GET', 'POST'])
@@ -308,7 +324,7 @@ def add_address():
 
             db.commit()
 
-            return redirect('/settings')
+            return redirect_or_next('/settings')
 
 
 def try_parse(f, text):
@@ -321,32 +337,35 @@ def try_parse(f, text):
 @app.route('/settings/payments/add', methods=['POST'])
 @login_required
 def add_payment():
-    with db.cursor() as cur:
-        card_number = request.form['card_number']
+    with transaction as t:
+        with db.cursor() as cur:
+            card_number = request.form['card_number']
 
-        exp_year = try_parse(int, request.form['exp_year'])
-        exp_month = try_parse(int, request.form['exp_month'])
-        exp_day = 1
-        exp_date = '{}-{}-{}'.format(exp_year, exp_month, exp_day)
+            exp_year = try_parse(int, request.form['exp_year'])
+            exp_month = try_parse(int, request.form['exp_month'])
+            exp_day = 1
+            exp_date = '{}-{}-{}'.format(exp_year, exp_month, exp_day)
 
-        card_holder = request.form['card_holder']
-        display_name = "Visa " + card_number[:4]
+            card_holder = request.form['card_holder']
+            display_name = "Visa " + card_number[:4]
 
-        address_id = request.form['address_id']
+            address_id = request.form['address_id']
 
-        cur.execute(
-            """
-            INSERT INTO payment_method (customer_id, card_number, exp, card_holder, display_name, billing_address)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            (current_user.id,
-             card_number,
-             exp_date,
-             card_holder,
-             display_name,
-             address_id))
+            cur.execute(
+                """
+                INSERT INTO payment_method (customer_id, card_number, exp, card_holder, display_name, billing_address)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (current_user.id,
+                 card_number,
+                 exp_date,
+                 card_holder,
+                 display_name,
+                 address_id))
 
-        return redirect('/settings')
+            t.commit()
+
+        return redirect_or_next('/settings')
 
 
 @app.route('/settings/payments/remove/<int:payment>', methods=['GET'])
@@ -360,7 +379,7 @@ def remove_payment(payment):
             """,
             (payment, current_user.id))
 
-        return redirect('/settings')
+        return redirect_or_next('/settings')
 
 
 @app.route('/settings/payments/setprimary/<int:payment>', methods=['GET'])
@@ -371,7 +390,7 @@ def setprimary_payment(payment):
                     (payment, current_user.id))
         db.commit()
 
-        return redirect('/settings')
+        return redirect_or_next('/settings')
 
 
 @app.route('/settings')
@@ -534,44 +553,103 @@ def checkout_payment():
                                addresses=addresses)
 
 
-@app.route('/checkout/finish', methods=['POST'])
+@app.route('/checkout/finish', methods=['GET', 'POST'])
 @login_required
 def checkout_finish():
-    with db.cursor() as cur:
-        # if we had actual payments, we'd handle that here
-        leg = 0
-        confirmations = list()
-        for f in session['cart']:
-            cur.execute("SELECT price FROM flight_class WHERE flight_id=%s AND class_id=%s ;",
-                        (f[0], f[1]))
-            price = cur.fetchone()[0]
+    cart = session['cart'] or []
+    cart = [CartFlight(*attrs) for attrs in cart]
 
-            cur.execute("INSERT INTO ticket VALUES (DEFAULT, %s, %s, %s, %s, %s) RETURNING id",
-                        (price, leg, f[0], current_user.id, f[1]))
-            confirmations.append(cur.fetchone()[0])
+    payment_method_id = request.form.get('payment_method')
+
+    if len(cart) == 0:
+        return redirect('/tickets')
+
+    with transaction:
+        with db.cursor() as cur:
+            # if we had actual payments, we'd handle that here
+            leg = 0
+            confirmations = []
+            for f in cart:
+                cur.execute("SELECT price FROM flight_class WHERE flight_id = %s AND class_id = %s;",
+                            (f.flight_id, f.class_id))
+                price = cur.fetchone()[0]
+
+                cur.execute("INSERT INTO ticket (id, price, leg, flight, customer_id, paid_with, class_id)"
+                            "VALUES (DEFAULT, %s, %s, %s, %s, %s, %s) RETURNING id",
+                            (price, leg, f.flight_id, current_user.id, payment_method_id, f.class_id))
+                confirmations.append(cur.fetchone()[0])
 
             db.commit()
 
+            cur.execute(
+                """
+                SELECT
+                  fc.flight_id,
+                  fc.class_id,
+                  c.display_name as class_name,
+                  f.airline,
+                  f.number,
+                  f.departure_airport,
+                  f.departure_time,
+                  f.arrival_airport,
+                  f.arrival_time,
+                  fc.price
+                FROM ticket t
+                INNER JOIN flight_class fc
+                  ON t.flight = fc.flight_id
+                  AND t.class_id = fc.class_id
+                INNER JOIN flight f
+                  ON fc.flight_id = f.id 
+                INNER JOIN class c
+                  ON fc.class_id = c.id
+                WHERE t.id IN %s
+                """,
+                (tuple(confirmations),))
+
+            itinerary = cur.fetchall(as_dict=True)
+
+            cur.execute("SELECT SUM(price) FROM flight_class WHERE flight_id IN %s AND class_id IN %s ;",
+                        (tuple(f.flight_id for f in cart),
+                         tuple(f.class_id for f in cart)))
+            total = cur.fetchone()[0]
+
+            session['cart'] = []
+            return render_template('checkout/finish.html', total=total, itinerary=itinerary)
+
+
+@app.route('/tickets', methods=['GET'])
+@login_required
+def get_tickets():
+    with db.cursor() as cur:
         cur.execute(
             """
-            SELECT *
-            FROM flight_class
-              FULL JOIN flight
-                ON flight_class.flight_id = flight.id
-              NATURAL JOIN class
-            WHERE (flight_id IN %s) AND (class_id IN %s)
+            SELECT
+              fc.flight_id,
+              fc.class_id,
+              c.display_name as class_name,
+              f.airline,
+              f.number,
+              f.departure_airport,
+              f.departure_time,
+              f.arrival_airport,
+              f.arrival_time,
+              fc.price
+            FROM ticket t
+            INNER JOIN flight_class fc
+              ON t.flight = fc.flight_id
+              AND t.class_id = fc.class_id
+            INNER JOIN flight f
+              ON fc.flight_id = f.id 
+            INNER JOIN class c
+              ON fc.class_id = c.id
+            WHERE t.customer_id = %s
             """,
-            (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
+            (current_user.id,))
 
-        itinerary = list()
-        for i, flight in enumerate(cur):
-            itinerary.append(flight + (confirmations[i],))
+        itinerary = cur.fetchall(as_dict=True)
 
-        cur.execute("SELECT SUM(price) FROM flight_class WHERE flight_id IN %s AND class_id IN %s ;",
-                    (tuple(a[0] for a in session['cart']), tuple(a[1] for a in session['cart'])))
-        total = cur.fetchone()[0]
-
-        return render_template('checkout/finish.html', total=total, itinerary=itinerary)
+        session['cart'] = []
+        return render_template('checkout/finish.html', total=None, itinerary=itinerary)
 
 
 @app.route('/logout')

@@ -1,42 +1,64 @@
 {% extends "layout.html" %}
+
+{% block styles %}
+    {{ super() }}
+
+    <style>
+    .circle-success {
+        margin: 0 auto;
+        width: 128px;
+        text-align: center;
+        height: 128px;
+        font-size: 5em;
+        background: mediumseagreen;
+        color: white;
+        padding-top: 0.35em;
+    }
+
+    .container .congrats {
+        text-align: center;
+    }
+    </style>
+{% endblock %}
+
 {% block content %}
-{# itinerary indices reference
-0. flight_id
-1. flight_id
-2. class_id
-3. capacity
-4. price
-5. number
-6. departure_time
-7. arrival_time
-8. departure_airport
-9. arrival_airport
-10. airline
-11. display_name #}
     <div class="container">
-        <h1>Your itinerary</h1>
+        {% if total %}
+            <div class="circle-success img-circle"><i class="glyphicon glyphicon-ok"></i></div>
+            <h1 class="congrats">Your flights are booked and ready to go!</h1>
+        {% else %}
+            <h1 class="congrats">Your current tickets</h1>
+        {% endif %}
+
         <div class="list-group">
             {% for flight in itinerary %}
                 <div class="list-group-item">
                     <h1>
-                        {{ flight[10] }}{{ flight[5] }}
+                        {{ flight.airline }}{{ flight.number }}
                         <small>
-                            {{ flight[8] }}
+                            {{ flight.departure_airport }}
                             <i class="glyphicon glyphicon-arrow-right"></i>
-                            {{ flight[9] }}
+                            {{ flight.arrival_airport }}
                         </small>
-                        <span class="pull-right">{{ flight[4] }}</span>
+                        <span class="pull-right">{{ flight.price }}</span>
                     </h1>
-                    Departing at {{ flight[6].strftime('%H:%m on %m-%d-%y') }} -- <b>Confirmation number: <span class="badge badge-primary">{{ flight[-1] }}</span></b>
+                    Departing at {{ flight.departure_time.strftime('%H:%m on %m-%d-%y') }}
                 </div>
             {% endfor %}
-            <div class="list-group-item list-group-item-success">
-                <h2>Total: <span class="pull-right">{{ total }}</span></h2>
-            </div>
+
+            {% if total %}
+                <div class="list-group-item list-group-item-success">
+                    <h2>Total: <span class="pull-right">{{ total }}</span></h2>
+                </div>
+            {% endif %}
         </div>
         <div class="well">
-            <a class="btn btn-default" href="/search">Keep shopping</a>
-            <a class="btn btn-primary pull-right" href="/checkout/payment">Continue to payment</a>
+            <a class="btn btn-default" href="/search">
+                <i class="glyphicon glyphicon-arrow-left"></i> Back to Search
+            </a>
+            {% if total %}
+                <a class="btn btn-primary pull-right" href="/tickets">View All Tickets</a>
+            {% endif %}
         </div>
     </div>
 {% endblock %}

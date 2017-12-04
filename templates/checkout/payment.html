@@ -12,7 +12,7 @@
                         Total: {{ total }}
                     </div>
                     <div class="list-group-item">
-                        Available payment methods (<a href="/settings">Add another?</a>):
+                        Available payment methods (<a href="/settings?next=/checkout/payment">Add another?</a>):
                         <select name="payment_method" class="form-control">
                             {% for method in payment_methods %}
                                 <option value="{{ method[0] }}"
@@ -23,12 +23,12 @@
                         </select>
                     </div>
                     <div class="list-group-item">
-                        Available addresses (<a href="/settings">Add another?</a>):
+                        Available addresses (<a href="/settings?next=/checkout/payment">Add another?</a>):
                         <select name="address" class="form-control">
                             {% for address in addresses %}
                                 <option value="{{ address[1] }}"
                                         {% if address[1] == primary_address %} selected {% endif %}>
-                                    {{ address[3] }} {{ address[4] }}, {{ address[5] }}, {{ address[6] }} {{ address[7] }} {{ address[8] }}
+                                    {{ address[3] }} {{ address[4] }}, {{ address[5] }}, {{ address[6] }} {{ address[7] }}, {{ address[8] }}
                                 </option>
                             {% endfor %}
                         </select>
