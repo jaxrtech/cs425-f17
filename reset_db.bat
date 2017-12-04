@@ -1,4 +1,4 @@
-psql -p 5434 -d aero -U postgres ^
+psql -p 5432 -d aero -U postgres ^
   -f ./schema/down.sql ^
   -f ./schema/up.sql ^
   -f ./sample_data/aero_class.sql ^
