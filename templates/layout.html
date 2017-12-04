@@ -39,15 +39,15 @@
               </ul>
             </li>
             <li>
-              <button type="button" href="/logout?next={{ request.path }}" class="btn btn-default navbar-btn">
+              <a href="/login?next={{ request.path }}" class="btn btn-default navbar-btn">
                 Sign out
-              </button>
+              </a>
             </li>
           {% else %}
             <li>
-              <button type="button" href="/login?next={{ request.path }}" class="btn btn-default navbar-btn">
+              <a href="/login?next={{ request.path }}" class="btn btn-default navbar-btn">
                 Sign in
-              </button>
+              </a>
             </li>
           {% endif %}
         </ul>
