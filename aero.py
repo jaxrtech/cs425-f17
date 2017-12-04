@@ -176,25 +176,30 @@ def search():
         else:
             dep_date = datetime.datetime.strptime(request.form['dep_date'], '%m/%d/%Y')
             dep_date_max = dep_date + datetime.timedelta(days=1)
+            try:
+                cur.execute(
+                    """
+                    SELECT id, airline, number, arrival_time, departure_time
+                    FROM flight
+                    WHERE departure_airport = %s
+                      AND arrival_airport = %s
+                      AND %s <= departure_time
+                      AND %s >= departure_time
+                      AND airline = %s
+                    """,
+                    (request.form['from_airport'],
+                     request.form['to_airport'],
+                     dep_date,
+                     dep_date_max,
+                     request.form['airline']))
 
-            cur.execute(
-                """
-                SELECT id, airline, number, arrival_time, departure_time
-                FROM flight
-                WHERE departure_airport = %s
-                  AND arrival_airport = %s
-                  AND %s <= departure_time
-                  AND %s >= departure_time
-                  AND airline = %s
-                """,
-                (request.form['from_airport'],
-                 request.form['to_airport'],
-                 dep_date,
-                 dep_date_max,
-                 request.form['airline']))
-
-            results = cur.fetchall(FlightDto)
-
+                results = cur.fetchall(FlightDto)
+            except pg.Error as e:
+                return render_template('search.html',
+                                   from_airport='ATL',
+                                   to_airport='CDG',
+                                   dep_date=datetime.date.today(),
+                                   airline='DL',error=e)
             return render_template('search.html',
                                    from_airport=request.form['from_airport'],
                                    to_airport=request.form['to_airport'],

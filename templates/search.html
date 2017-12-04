@@ -43,6 +43,11 @@
                         Search
                     </div>
                     <div class="panel-body">
+			 {% if error %}
+                   	 <div class="alert alert-danger text-center">
+                       	 	<strong>{{ error }}</strong>
+                    	</div>
+                    	{% endif %}
                         <div class="form-group">
                             <label for="from">From / To</label>
                             <div class="input-group">
