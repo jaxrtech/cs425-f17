@@ -67,16 +67,24 @@ class User:
         return self.email
 
 
-AddressDto = namedtuple('AddressDto',
-                        ['id',
-                         'customer_id',
-                         'line_1',
-                         'line_2',
-                         'city',
-                         'province',
-                         'postal_code',
-                         'country'])
+AddressDto = namedtuple(
+    'AddressDto',
+    ['id',
+     'customer_id',
+     'line_1',
+     'line_2',
+     'city',
+     'province',
+     'postal_code',
+     'country'])
 
+FlightDto = namedtuple(
+    'FlightDto',
+    ['id',
+     'airline',
+     'number',
+     'arrival_time',
+     'departure_time'])
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -126,7 +134,7 @@ def register():
     if request.method == 'GET':
         return render_template('register.html', next=request.args.get('next'))
 
-    with db:  # run within transaction
+    with transaction:  # run within transaction
         with db.cursor() as cur:
             try:
                 cur.execute("INSERT INTO address (id, line_1, line_2, city, province, postal_code, country)"
@@ -136,7 +144,8 @@ def register():
                 address_id = cur.fetchone()[0]
 
                 cur.execute("INSERT INTO customer (id, name, email, password, primary_payment_id, primary_address_id, primary_airport_id)"
-                            "VALUES (DEFAULT, %s, %s, crypt(%s, gen_salt('bf')), NULL, %s, %s) RETURNING id;",
+                            "VALUES (DEFAULT, %s, %s, crypt(%s, gen_salt('bf')), NULL, %s, %s)"
+                            "RETURNING id;",
                             (request.form['name'], request.form['email'], request.form['password'],
                              address_id, request.form['home']))
                 customer_id = cur.fetchone()[0]
@@ -170,13 +179,13 @@ def search():
 
             cur.execute(
                 """
-                SELECT *
+                SELECT id, airline, number, arrival_time, departure_time
                 FROM flight
                 WHERE departure_airport = %s
-                  AND arrival_airport= %s
+                  AND arrival_airport = %s
                   AND %s <= departure_time
                   AND %s >= departure_time
-                  AND airline=%s
+                  AND airline = %s
                 """,
                 (request.form['from_airport'],
                  request.form['to_airport'],
@@ -184,7 +193,7 @@ def search():
                  dep_date_max,
                  request.form['airline']))
 
-            results = cur.fetchall()
+            results = cur.fetchall(FlightDto)
 
             return render_template('search.html',
                                    from_airport=request.form['from_airport'],
@@ -443,7 +452,7 @@ def checkout_payment():
 def checkout_finish():
     with db.cursor() as cur:
         # if we had actual payments, we'd handle that here
-        leg = 0;
+        leg = 0
         confirmations = list()
         for f in session['cart']:
             cur.execute("SELECT price FROM flight_class WHERE flight_id=%s AND class_id=%s ;",
@@ -478,7 +487,7 @@ def checkout_finish():
         return render_template('checkout/finish.html', total=total, itinerary=itinerary)
 
 
-@app.route('/logout/')
+@app.route('/logout')
 def logout():
     logout_user()
     return redirect('/')

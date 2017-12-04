@@ -3,6 +3,17 @@
 {% block styles %}
     {{ super() }}
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/css/bootstrap-datepicker3.min.css" integrity="sha384-CuqHLZbw4yxoE4YzgqWDF9Xrv8YfD8Y20i+/gwL3e1+fYEj0wjLBmkCotf113/g/" crossorigin="anonymous">
+
+    <style>
+        .flight-item {
+            padding: 12px 15px;
+        }
+
+        .flight-item h2 {
+            margin-top: 0.15em;
+            margin-bottom: 0.15em;
+        }
+    </style>
 {% endblock %}
 
 {% block scripts %}
@@ -60,9 +71,12 @@
                 <div class="list-group">
                     {% if flights %}
                         {% for flight in flights %}
-                            <div class="list-group-item">
-                                <a class="btn btn-primary pull-right" href="/select/{{ flight[0] }}/1">Select this flight --></a>
-                                <h2>{{ flight[6] }}{{ flight[1] }}</h2>
+                            <div class="flight-item list-group-item">
+                                <a class="btn btn-primary pull-right" href="/select/{{ flight.id }}/1">Select this flight <i class="glyphicon glyphicon-arrow-right"></i></a>
+                                <h2>{{ flight.airline }}{{ flight.number }}</h2>
+                                {{ flight.departure_time.strftime('%I:%M %p') }}
+                                <i class="glyphicon glyphicon-arrow-right"></i>
+                                {{ flight.arrival_time.strftime('%I:%M %p') }}
                             </div>
                         {% endfor %}
 

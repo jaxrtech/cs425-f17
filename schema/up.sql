@@ -55,7 +55,9 @@ CREATE TABLE IF NOT EXISTS airport (
 	name TEXT NOT NULL,
 	lat FLOAT NOT NULL,
 	long FLOAT NOT NULL,
-	address_id SERIAL NOT NULL REFERENCES address (id)
+	city TEXT NOT NULL,
+	country TEXT NOT NULL,
+	tz TEXT NOT NULL
 );
 
 ALTER TABLE customer ADD FOREIGN KEY (primary_airport_id) REFERENCES airport (iata) DEFERRABLE;
@@ -65,7 +67,7 @@ GRANT SELECT, REFERENCES ON TABLE airport TO aero;
 
 -- airline
 CREATE TABLE IF NOT EXISTS airline (
-	callsign airline_code NOT NULL PRIMARY KEY,
+	callsign airline_code PRIMARY KEY,
 	name TEXT NOT NULL,
 	country TEXT NOT NULL
 );
@@ -75,16 +77,36 @@ GRANT SELECT, REFERENCES ON TABLE airline TO aero;
 
 -- flight
 CREATE TABLE IF NOT EXISTS flight (
-	id SERIAL NOT NULL PRIMARY KEY,
+	id SERIAL PRIMARY KEY,
+  airline airline_code NOT NULL REFERENCES airline (callsign),
 	number INT NOT NULL,
-	departure_time TIMESTAMPTZ NOT NULL,
-	arrival_time TIMESTAMPTZ NOT NULL,
+	departure_time TIMESTAMP NOT NULL,
+	arrival_time TIMESTAMP NOT NULL,
+  duration INTERVAL HOUR TO MINUTE NOT NULL,
 	departure_airport iata_code NOT NULL REFERENCES airport (iata),
-	arrival_airport iata_code NOT NULL REFERENCES airport (iata),
-	airline airline_code NOT NULL REFERENCES airline (callsign)
+	arrival_airport iata_code NOT NULL REFERENCES airport (iata)
 );
 
 GRANT SELECT, REFERENCES ON TABLE flight TO aero;
+
+
+-- flight_schedule
+CREATE TABLE flight_schedule (
+  id SERIAL PRIMARY KEY,
+  airline airline_code NOT NULL,
+  number INT NOT NULL,
+  timeline DATERANGE NOT NULL,
+  depature_airport iata_code NOT NULL, -- exclude `REFERENCES airport`
+  depature_time time NOT NULL,
+  arrival_airport iata_code NOT NULL, -- exclude `REFERENCES airport`
+  arrival_time time NOT NULL,
+  days BIT(7) NOT NULL,
+  leg INT NOT NULL,
+  duration INTERVAL HOUR TO MINUTE NOT NULL,
+  UNIQUE (airline, number, timeline, depature_airport, depature_time, arrival_airport, arrival_time)
+);
+
+GRANT SELECT ON TABLE flight_schedule TO aero;
 
 
 -- class
