@@ -27,6 +27,18 @@
 
       <!-- Collect the nav links, forms, and other content for toggling -->
       <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+
+        <div class="nav navbar-nav navbar-right">
+          {% if current_user.is_authenticated %}
+            <a href="/logout?next={{ request.path }}" class="btn btn-default navbar-btn">
+              Sign out
+            </a>
+          {% else %}
+            <a href="/login?next={{ request.path }}" class="btn btn-default navbar-btn">
+              Sign in
+            </a>
+          {% endif %}
+        </div>
         <ul class="nav navbar-nav navbar-right">
           {% if current_user.is_authenticated %}
             <li class="dropdown">
@@ -37,17 +49,6 @@
                 <li><a href="/tickets">Tickets</a></li>
                 <li><a href="/settings">Settings</a></li>
               </ul>
-            </li>
-            <li>
-              <a href="/logout?next={{ request.path }}" class="btn btn-default navbar-btn">
-                Sign out
-              </a>
-            </li>
-          {% else %}
-            <li>
-              <a href="/login?next={{ request.path }}" class="btn btn-default navbar-btn">
-                Sign in
-              </a>
             </li>
           {% endif %}
         </ul>

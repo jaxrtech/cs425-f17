@@ -1,11 +1,14 @@
 import datetime
-from collections import namedtuple
+import urllib
+from collections import namedtuple, OrderedDict
+from itertools import groupby
 from urllib.parse import urlparse, parse_qs
 
 import psycopg2 as pg
 from flask import Flask, request, redirect, render_template, session, abort, json
 from flask_bootstrap import Bootstrap
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from markupsafe import Markup
 from psycopg2.extensions import cursor as pgcursor
 
 import env
@@ -22,6 +25,15 @@ app.secret_key = 'ak;sljmdfvijkldsfvbnmiouaervmuiw4remivou'
 app.url_map.strict_slashes = False
 
 
+@app.template_filter('urlencode')
+def urlencode_filter(s):
+    if type(s) == 'Markup':
+        s = s.unescape()
+    s = s.encode('utf8')
+    s = urllib.parse.quote_plus(s)
+    return Markup(s)
+
+
 class FancyCursor(pgcursor):
     def __init__(self, *args, **kwargs):
         super(FancyCursor, self).__init__(*args, **kwargs)
@@ -29,15 +41,18 @@ class FancyCursor(pgcursor):
     def make_dict(self, row):
         return dict(list(zip(map(lambda x: x.name, self.description), row)))
 
+    def make_namedtuple(self, row):
+        d = self.make_dict(row)
+        t = namedtuple('Anon', d.keys())
+        return t(*d.values())
+
     def make_dto(self, clazz, row):
         return clazz(**self.make_dict(row))
 
     def fetchone(self, clazz=None, as_dict=False):
         row = pgcursor.fetchone(self)
         if as_dict:
-            d = self.make_dict(row)
-            t = namedtuple('Anon', d.keys())
-            return t(*d.values())
+            return self.make_namedtuple(row)
         elif clazz:
             return self.make_dto(clazz, row)
         else:
@@ -46,7 +61,7 @@ class FancyCursor(pgcursor):
     def fetchall(self, clazz=None, as_dict=False):
         rows = pgcursor.fetchall(self)
         if as_dict:
-            return list(map(lambda r: self.make_dict(r), rows))
+            return list(map(lambda r: self.make_namedtuple(r), rows))
         if clazz:
             return list(map(lambda r: self.make_dto(clazz, r), rows))
         else:
@@ -189,6 +204,9 @@ def register():
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
+    def clamp(x, smallest, largest):
+        return max(smallest, min(x, largest))
+
     with db.cursor() as cur:
         try:
             if request.method == 'GET':
@@ -202,6 +220,7 @@ def search():
                 dep_date = datetime.date.today()
                 airline = 'DL'
                 class_id = 1  # Economy
+                max_legs = 3
 
             else:
                 dep_date = datetime.datetime.strptime(request.form['dep_date'], '%m/%d/%Y')
@@ -209,41 +228,72 @@ def search():
                 to_airport = request.form['to_airport']
                 airline = request.form['airline']
                 class_id = request.form['class_id']
+                max_legs = int(request.form['max_legs'])
 
             dep_date_max = dep_date + datetime.timedelta(days=1)
+            max_legs = clamp(max_legs, 0, 3)
 
             cur.execute('SELECT id, display_name FROM class ORDER BY id')
             classes = cur.fetchall(as_dict=True)
 
             cur.execute(
                 """
-                SELECT
-                  f.id,
-                  f.airline,
-                  f.number,
-                  f.departure_airport,
-                  f.departure_time,
-                  f.arrival_airport,
-                  f.arrival_time,
-                  fc.price
-                FROM flight f
-                INNER JOIN flight_class fc
-                  ON f.id = fc.flight_id
-                WHERE airline = %s
-                  AND departure_airport = %s
-                  AND arrival_airport = %s
-                  AND %s <= departure_time
-                  AND %s >= departure_time
-                  AND class_id = %s
+                select
+                  ids,
+                  id,
+                  path,
+                  leg,
+                  total_legs,
+                  airline,
+                  number,
+                  departure_airport,
+                  departure_time,
+                  arrival_airport,
+                  arrival_time,
+                  price,
+                  total_price
+                from aero_search_flights(
+                  airline$ := %s,
+                  departure_airport$ := %s,
+                  arrival_airport$ := %s,
+                  departure_date_min$ := %s,
+                  departure_date_max$ := %s,
+                  class_id$ := %s,
+                  max_connection_wait$ := %s,
+                  max_legs$ := %s)
                 """,
                 (airline,
                  from_airport,
                  to_airport,
                  dep_date,
                  dep_date_max,
-                 class_id))
+                 class_id,
+                 '2 hours',
+                 max_legs))
 
             results = cur.fetchall(as_dict=True)
+
+            flight_groups_unsorted = {}
+            for k, g in groupby(results, key=lambda r: ','.join(map(str, r.ids))):
+                gs = flight_groups_unsorted.setdefault(k, [])
+                gs.extend(list(g))
+
+            for k, flights in flight_groups_unsorted.items():
+                def make_namedtuple(d):
+                    return namedtuple('Anon', d.keys())(**d)
+
+                flight = flights[0]
+                alt = {
+                    'ids': flight.ids,
+                    'path': flight.path,
+                    'total_price': flight.total_price,
+                    'checkout_tag': json.dumps(list(zip(flight.ids, [class_id] * len(flights)))),
+                    'flights': flights
+                }
+                flight_groups_unsorted[k] = make_namedtuple(alt)
+
+            flight_groups = OrderedDict(sorted(flight_groups_unsorted.items(), key=lambda kv: kv[1].total_price))
+
         except pg.Error as e:
             return render_template('search.html',
                                    classes=[],
@@ -258,7 +308,7 @@ def search():
                                to_airport=to_airport,
                                dep_date=dep_date,
                                airline=airline,
-                               flights=results,
+                               flight_groups=flight_groups,
                                classes=classes,
                                class_id=class_id)
 
@@ -446,6 +496,20 @@ def user_settings():
 def add_flight(flight_id, class_id):
     cart = session['cart']
     cart.append(CartFlight(flight_id, class_id))
+    session['cart'] = cart
+
+    return redirect('/checkout/review')
+
+
+@app.route('/checkout/add_group')
+@login_required
+def add_flight_group():
+    cart = session.get('cart', [])
+
+    keys = json.loads(request.args.get('ids'))
+    for [flight_id, class_id] in keys:
+        cart.append(CartFlight(flight_id, class_id))
+
     session['cart'] = cart
 
     return redirect('/checkout/review')

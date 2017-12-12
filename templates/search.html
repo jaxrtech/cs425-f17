@@ -1,126 +1,179 @@
 {% extends "layout.html" %}
 
 {% block styles %}
-    {{ super() }}
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/css/bootstrap-datepicker3.min.css" integrity="sha384-CuqHLZbw4yxoE4YzgqWDF9Xrv8YfD8Y20i+/gwL3e1+fYEj0wjLBmkCotf113/g/" crossorigin="anonymous">
+  {{ super() }}
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/css/bootstrap-datepicker3.min.css" integrity="sha384-CuqHLZbw4yxoE4YzgqWDF9Xrv8YfD8Y20i+/gwL3e1+fYEj0wjLBmkCotf113/g/" crossorigin="anonymous">
 
-    <style>
-        .flight-item {
-            padding: 12px 15px;
-        }
+  <style>
+    .flight-item {
+      padding: 12px 15px;
+    }
 
-        .flight-item h2 {
-            margin-top: 0.15em;
-            margin-bottom: 0.15em;
-        }
+    .flight-item h2 {
+      margin-top: 0.15em;
+      margin-bottom: 0.15em;
+    }
 
-        .flight-item .btn {
-            margin-top: 5px;
-            margin-left: 0.5em;
-        }
+    .flight-item .btn {
+      margin-top: 5px;
+      margin-left: 0.5em;
+    }
 
-        .flight-title {
-            display: inline-block;
-            min-width: 3.5em;
-        }
-    </style>
+    .flight-item-group {
+      border-radius: 0px;
+      margin-bottom: 0px;
+      border-width: 2px 0px 2px 0px;
+    }
+
+    .flight-item-group .panel-body {
+      border-width: 0px;
+    }
+
+    .flight-item-group .panel-title {
+      display: inline;
+    }
+
+    .flight-title {
+      display: inline-block;
+      min-width: 3.5em;
+    }
+  </style>
 {% endblock %}
 
 {% block scripts %}
-    {{ super() }}
-    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/js/bootstrap-datepicker.min.js" integrity="sha384-w48xMCwgWQu0zb3PvQI/rK5lfN6G+lSWu+qI4ukKZg3I5Xx3/VWA8IiaQ8O7tZur" crossorigin="anonymous"></script>
+  {{ super() }}
+  <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.7.1/js/bootstrap-datepicker.min.js" integrity="sha384-w48xMCwgWQu0zb3PvQI/rK5lfN6G+lSWu+qI4ukKZg3I5Xx3/VWA8IiaQ8O7tZur" crossorigin="anonymous"></script>
 
-    <script>
-        $(function () {
-            $('.form-date')
-                .datepicker({
-                    maxViewMode: 2, // years
-                    todayBtn: "linked",
-                    todayHighlight: true,
-                    autoclose: true
-                })
-                .datepicker('setDate', new Date());
-        });
-    </script>
+  <script>
+      $(function () {
+          $('.form-date')
+              .datepicker({
+                  maxViewMode: 2, // years
+                  todayBtn: "linked",
+                  todayHighlight: true,
+                  autoclose: true
+              })
+              .datepicker('setDate', new Date());
+      });
+  </script>
 {% endblock %}
 
 {% block content %}
-    <div class="container-fluid">
-        <div class="col-sm-4">
-            <form action="/search" method="post">
-                <div class="panel panel-default">
-                    <div class="panel-heading">
-                        Search
-                    </div>
-                    <div class="panel-body">
-                        {% if error %}
-                            <div class="alert alert-danger text-center">
-                                <strong>{{ error }}</strong>
-                            </div>
-                        {% endif %}
-                        <div class="form-group">
-                            <label for="from">From / To</label>
-                            <div class="input-group">
-                                <input type="text" name="from_airport" value="{{ from_airport }}" class="form-control" />
-                                <div class="input-group-addon"><i class="glyphicon glyphicon-arrow-right"></i></div>
-                                <input type="text" name="to_airport" value="{{ to_airport }}" class="form-control" />
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="dep_date">On date</label>
-                            <input type="text" name="dep_date" class="form-date form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="airline">On airline</label>
-                            <input type="text" name="airline" value="{{ airline }}" class="form-control" placeholder="DL" />
-                        </div>
-                        <div class="form-group">
-                            <label for="class_id">Class</label>
-                            <select name="class_id" class="form-control">
-                                {% for c in classes %}
-                                    <option value="{{ c.id }}">{{ c.display_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="panel-footer text-right">
-                        <input type="submit" value="Search" class="btn btn-primary" />
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="col-sm-8">
-            <div class="panel panel-default">
-                <div class="list-group">
-                    {% if flights %}
-                        {% for flight in flights %}
-                            <div class="flight-item list-group-item">
-                                <a class="btn btn-primary pull-right" href="/checkout/add/{{ flight.id }}/{{ class_id }}">
-                                    Book this Flight
-                                    <i class="glyphicon glyphicon-arrow-right"></i>
-                                </a>
-                                <h2>
-                                    <span class="flight-title">{{ flight.airline }}{{ flight.number }}</span>
-                                    <small>
-                                        {{ flight.departure_airport }}
-                                        <i class="glyphicon glyphicon-arrow-right"></i>
-                                        {{ flight.arrival_airport }}
-                                    </small>
-                                    <span class="pull-right">{{ flight.price }}</span>
-                                </h2>
-                                {{ flight.departure_time.strftime('%I:%M %p') }}
-                                <i class="glyphicon glyphicon-arrow-right"></i>
-                                {{ flight.arrival_time.strftime('%I:%M %p') }}
-                            </div>
-                        {% endfor %}
+  <div class="container-fluid">
+    <div class="col-sm-4">
 
-                    {% else %}
-                        <div class="list-group-item">
-                            Your search didn't match any available flights.
-                        </div>
-                    {% endif %}
-                </div>
+      <form action="/search" method="post">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            Search
+          </div>
+
+          <div class="panel-body">
+            {% if error %}
+              <div class="alert alert-danger text-center">
+                <strong>{{ error }}</strong>
+              </div>
+            {% endif %}
+
+            <div class="form-group">
+              <label for="from">From / To</label>
+              <div class="input-group">
+                <input type="text" name="from_airport" value="{{ from_airport }}" class="form-control" />
+                <div class="input-group-addon"><i class="glyphicon glyphicon-arrow-right"></i></div>
+                <input type="text" name="to_airport" value="{{ to_airport }}" class="form-control" />
+              </div>
             </div>
+
+            <div class="form-group">
+              <label for="max_legs">Nonstop / Connections</label>
+              <select name="max_legs" class="form-control">
+                <option value="3">Any number of stops</option>
+                <option value="1">Nonstop only</option>
+                <option value="2">1 stop or fewer</option>
+                <option value="3">2 stops or fewer</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dep_date">On date</label>
+              <input type="text" name="dep_date" class="form-date form-control">
+            </div>
+            <div class="form-group">
+              <label for="airline">On airline</label>
+              <input type="text" name="airline" value="{{ airline }}" class="form-control" placeholder="DL" />
+            </div>
+            <div class="form-group">
+              <label for="class_id">Class</label>
+              <select name="class_id" class="form-control">
+                {% for c in classes %}
+                  <option value="{{ c.id }}">{{ c.display_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="panel-footer text-right">
+            <input type="submit" value="Search" class="btn btn-primary" />
+          </div>
         </div>
+      </form>
+
     </div>
+    <div class="col-sm-8">
+      <div class="panel panel-default">
+        <div class="list-group">
+
+          {% if flight_groups %}
+            {% for _, group in flight_groups.items() %}
+              {% if (group.flights | length) > 1 %}
+                <div class="panel panel-default flight-item-group">
+                  <div class="panel-heading">
+                      <h2 class="panel-title">
+                      {{ ' <i class="glyphicon glyphicon-arrow-right"></i> '.join(group.path) | safe }}
+                      </h2>
+
+                    <a class="btn btn-primary pull-right" href="/checkout/add_group/?ids={{ group.checkout_tag | urlencode }}">
+                    Book Now
+                    <i class="glyphicon glyphicon-arrow-right"></i>
+                  </a>
+                      <h2 class="panel-title pull-right">{{ group.total_price }}</h2>
+                    </div>
+
+                  <div class="panel-body">
+              {% endif %}
+
+              {% for flight in group.flights %}
+                <div class="flight-item {{ 'list-group-item' if flight.total_legs == 1 else '' }}">
+                  <a class="btn btn-primary pull-right" href="/checkout/add/{{ flight.id }}/{{ class_id }}">
+                    Book Now
+                    <i class="glyphicon glyphicon-arrow-right"></i>
+                  </a>
+                  <h2>
+                    <span class="flight-title">{{ flight.airline }}{{ flight.number }}</span>
+                    <small>
+                      {{ flight.departure_airport }}
+                      <i class="glyphicon glyphicon-arrow-right"></i>
+                      {{ flight.arrival_airport }}
+                    </small>
+                    <span class="pull-right">{{ flight.price }}</span>
+                  </h2>
+                  {{ flight.departure_time.strftime('%I:%M %p') }}
+                  <i class="glyphicon glyphicon-arrow-right"></i>
+                  {{ flight.arrival_time.strftime('%I:%M %p') }}
+                </div>
+              {% endfor %}
+
+              {% if (group.flights | length) > 1 %}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="list-group-item">
+              Your search didn't match any available flights.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}

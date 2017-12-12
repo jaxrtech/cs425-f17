@@ -159,6 +159,151 @@ AS $$
 $$ language sql immutable;
 
 
+-- fn aero_search_flight_connections
+CREATE OR REPLACE FUNCTION aero_search_flights(
+  airline$ airline_code,
+  departure_airport$ iata_code,
+  departure_date_min$ TIMESTAMP,
+  departure_date_max$ TIMESTAMP,
+  arrival_airport$ iata_code,
+  class_id$ INTEGER,
+  max_connection_wait$ INTERVAL,
+  max_legs$ INTEGER)
+  RETURNS TABLE(
+    ids               INTEGER[],
+    id                INTEGER,
+    path              TEXT[],
+    leg               INTEGER,
+    total_legs        INTEGER,
+    airline           airline_code,
+    number            INTEGER,
+    departure_airport iata_code,
+    departure_time    TIMESTAMP,
+    arrival_airport   iata_code,
+    arrival_time      TIMESTAMP,
+    price             MONEY,
+    total_price       MONEY
+  ) AS
+$$
+WITH RECURSIVE flight_connnection (
+  ids,
+  path,
+  leg,
+  id,
+  airline,
+  depature_airport,
+  depature_time,
+  arrival_airport,
+  arrival_time,
+  price
+) AS (
+  SELECT
+    ARRAY[f.id] AS ids,
+    ARRAY[departure_airport$::TEXT] AS path,
+    1 AS leg,
+    f.id,
+    f.airline,
+    f.departure_airport,
+    f.departure_time,
+    f.arrival_airport,
+    f.arrival_time,
+    fc.price
+  FROM flight f
+  INNER JOIN flight_class fc
+    ON f.id = fc.flight_id
+    AND fc.class_id = class_id$
+  WHERE airline = airline$
+    AND departure_airport = departure_airport$
+    AND departure_date_min$ <= departure_time
+    AND departure_time <= departure_date_max$
+
+  UNION ALL
+
+  SELECT
+    f_prev.ids || f.id AS ids,
+    f_prev.path || f.departure_airport::TEXT AS path,
+    f_prev.leg + 1 AS leg,
+    f.id,
+    f.airline,
+    f.departure_airport,
+    f.departure_time,
+    f.arrival_airport,
+    f.arrival_time,
+    f_prev.price + fc.price AS price
+  FROM flight_connnection f_prev
+  INNER JOIN flight f
+    ON f_prev.arrival_airport = f.departure_airport
+    AND f_prev.arrival_time < f.departure_time
+    AND f.departure_time <= f_prev.arrival_time + max_connection_wait$
+  INNER JOIN flight_class fc
+    ON f.id = fc.flight_id
+  WHERE f.airline = airline$
+    AND fc.class_id = class_id$
+    AND f_prev.leg < max_legs$
+    AND NOT (f.arrival_airport = ANY (f_prev.path))
+),
+flight_partial AS (
+  SELECT
+    ids,
+    path || f.arrival_airport::TEXT AS path,
+    leg AS legs,
+    id,
+    airline,
+    depature_airport,
+    depature_time,
+    arrival_airport,
+    arrival_time,
+    price
+  FROM flight_connnection f
+  WHERE f.arrival_airport = arrival_airport$
+),
+flight_groups AS (
+  SELECT
+    fp.ids AS ids,
+    fp.path,
+    fid.id,
+    fid.leg,
+    array_length(fp.ids, 1) AS total_legs,
+    fp.price AS total_price
+  FROM
+    flight_partial fp,
+    unnest(fp.ids) WITH ORDINALITY AS fid(id, leg)
+)
+SELECT
+  fg.ids,
+  fg.id,
+  fg.path,
+  fg.leg::INTEGER,
+  fg.total_legs,
+  f.airline,
+  f.number,
+  f.departure_airport,
+  f.departure_time,
+  f.arrival_airport,
+  f.arrival_time,
+  fc.price,
+  fg.total_price
+FROM flight_groups fg
+INNER JOIN flight f
+  ON fg.id = f.id
+INNER JOIN flight_class fc
+  ON fg.id = fc.flight_id
+  AND fc.class_id = class_id$
+ORDER BY fg.ids, f.departure_time
+$$
+LANGUAGE SQL STABLE;
+
+GRANT EXECUTE ON FUNCTION aero_search_flights(
+  airline$ airline_code,
+  departure_airport$ iata_code,
+  departure_date_min$ TIMESTAMP,
+  departure_date_max$ TIMESTAMP,
+  arrival_airport$ iata_code,
+  class_id$ INTEGER,
+  max_connection_wait$ INTERVAL,
+  max_legs$ INTEGER)
+TO aero;
+
 -- class
 CREATE TABLE IF NOT EXISTS class (
 	id SERIAL NOT NULL PRIMARY KEY,

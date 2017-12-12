@@ -19,8 +19,17 @@ DROP TABLE IF EXISTS customer_address CASCADE;
 DROP FUNCTION IF EXISTS aero_approx_distance_mi(lat1 float, long1 float, lat2 float, long2 float);
 DROP FUNCTION IF EXISTS aero_ticket_price(distance FLOAT);
 DROP FUNCTION IF EXISTS aero_get_bit_positions(b bit varying);
-
-DROP OWNED BY aero CASCADE;
-DROP USER aero;
+DROP FUNCTION IF EXISTS FUNCTION aero_search_flights(
+  airline$ airline_code,
+  departure_airport$ iata_code,
+  departure_date_min$ TIMESTAMP,
+  departure_date_max$ TIMESTAMP,
+  arrival_airport$ iata_code,
+  class_id$ INTEGER,
+  max_connection_wait$ INTERVAL,
+  max_legs$ INTEGER);
 
 COMMIT;
+
+DROP OWNED BY aero CASCADE;
+DROP ROLE aero;
